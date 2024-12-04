@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+import os
 ###PARAMETERS###
 # Current cycle parameters
 I_min = np.float32(0)  # valore minimo in A
@@ -165,6 +165,7 @@ def statistics_calculation(magnet_power_comp_mean, magnet_power_no_comp_mean):
     
     return mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp
 
+
 def plot_power_cycles(cycle_number_array, mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp): 
     P_ac = np.float32(37.6)  # perdite di potenza in W
     plt.figure(figsize=(12, 6))
@@ -177,5 +178,65 @@ def plot_power_cycles(cycle_number_array, mean_power_comp, mean_power_no_comp, s
     plt.legend()
     plt.grid(True)
     plt.xticks(cycle_number_array)    
-    plt.savefig('power_losses.svg', format='svg')
+    plt.savefig('power_losses_statistics.svg', format='svg')
+    plt.show()
+    
+    
+def write_results_to_file(file_path, magnet_power_no_comp_mean, magnet_power_comp_mean,mean_power_comp,std_power_comp,mean_power_no_comp,std_power_no_comp):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    
+    with open(file_path, 'w') as file:
+        # Scrivi la potenza media non compensata
+        file.write("Mean power (not compensated)(acquisition cycle number in the columns and montecarlo iteration rows):\n")
+        np.savetxt(file, magnet_power_no_comp_mean, fmt='%.6f')
+        # Lascia una riga vuota
+        file.write("\n")
+        file.write("Mean power (compensated) (number of cycles of acquisition in the columns and montecarlo iteration rows):\n")
+        np.savetxt(file, magnet_power_comp_mean, fmt='%.6f')
+        file.write("\n")
+        file.write("########## STATISTICS ##########:\n \n")
+        file.write("Compensated Mean (in rows the statistic of each acquisition cycle number is given):\n")
+        np.savetxt(file, mean_power_comp, fmt='%.6f')
+        file.write("\n \n")
+        file.write("Not Compensated Mean:\n")
+        np.savetxt(file, mean_power_no_comp, fmt='%.6f')
+        file.write("\n \n")
+        file.write("Compensated StdDv:\n")
+        np.savetxt(file, std_power_comp, fmt='%.6f')
+        file.write("\n \n")
+        file.write("Not Compensated StdDv:\n")
+        np.savetxt(file, std_power_no_comp, fmt='%.6f')
+        
+def plot_current_cycle(I_min, I_max, I_ramp_rate, time_plateau, dt, N_max):
+    # Calcola i parametri del ciclo
+    time_transient = (I_max - I_min) / I_ramp_rate
+    period = 2 * time_plateau + 2 * time_transient  # Periodo del ciclo in s
+    total_time = N_max * period  # Tempo totale per N_max cicli
+    t = np.arange(0, total_time, dt, dtype=np.float32)  # Array dei tempi
+
+    # Genera il ciclo di corrente
+    I = generate_current_ramp(I_min, I_max, I_ramp_rate, 1/period, t).astype(np.float32)
+
+    # Plot del ciclo di corrente
+    plt.figure(figsize=(10, 6))
+    plt.plot(t, I, label=f'Current Cycle for N={N_max} acquisition cycles')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Current (A)')
+    plt.title(f'Current Cycle for N={N_max}')
+    plt.grid(True)
+    plt.savefig('current_cycle.svg', format='svg')
+    plt.show()
+    
+def plot_power_distribution(magnet_power_mean, column_index, filename):
+        # Estrai la prima colonna del vettore
+    power_to_distribute = magnet_power_mean[:, column_index]
+    # Crea l'istogramma
+    plt.figure(figsize=(10, 6))
+    plt.hist(power_to_distribute, edgecolor='black')
+    plt.xlabel('Mean Power (Not Compensated)')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of the Mean Power (Not Compensated) for N = 4')
+    plt.grid(True)
+    plt.savefig(filename, format='svg')
     plt.show()

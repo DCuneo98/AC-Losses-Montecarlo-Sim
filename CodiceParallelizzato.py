@@ -2,14 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import gc
-from functions import generate_current_ramp, voltage_magnet_and_voltage_derivative_sensor, voltages_post_ISOBLOCK, voltages_in_cRIO, current_reading, power_estimation, simulate, statistics_calculation, plot_power_cycles
+from functions import generate_current_ramp, voltage_magnet_and_voltage_derivative_sensor, voltages_post_ISOBLOCK, voltages_in_cRIO, current_reading, power_estimation, simulate, statistics_calculation, plot_power_cycles, write_results_to_file,plot_current_cycle,plot_power_distribution
 from joblib import Parallel, delayed
 
 start_time = time.time()
 
 ### PARAMETERS ###
-
-monte_carlo_iterations_array = np.arange(0,100000)
+file_name = 'results_simulation.txt'
+monte_carlo_iterations_array = np.arange(0,10000)
 # Current cycle parameters
 I_min = np.float32(0)  # valore minimo in A
 I_max = np.float32(3e3)  # valore massimo in A
@@ -45,7 +45,7 @@ magnet_power_no_comp_mean = np.zeros((len(monte_carlo_iterations_array), len(N_v
 
 for j, monte_carlo_iterations in enumerate(monte_carlo_iterations_array):
     results = Parallel(n_jobs=-1)(delayed(simulate)(N, monte_carlo_iterations) for N in N_values)
-    print("Numero simulazione Montecarlo: ", j+1)
+    print("Montecarlo index: ", j+1)
     magnet_power_comp_mean[j, :], magnet_power_no_comp_mean[j, :] = zip(*results)
     gc.collect()
 mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp = statistics_calculation(magnet_power_comp_mean, magnet_power_no_comp_mean)
@@ -53,8 +53,9 @@ mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp = statist
 gc.collect()
 print("Simulation completed in {:.2f} seconds.".format(time.time() - start_time))
 
+write_results_to_file(file_name,magnet_power_no_comp_mean, magnet_power_comp_mean,mean_power_comp,std_power_comp,mean_power_no_comp,std_power_no_comp)
+
+plot_current_cycle(I_min, I_max, I_ramp_rate, time_plateau, dt, N_max=4)
 plot_power_cycles(N_values, mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp)
-print("Media compensata: ", mean_power_comp, "\n")
-print ( "STDV Media compensata: ", std_power_comp, "\n")
-print("Media non compensata: ", mean_power_no_comp, "\n")
-print("STDV Media compensata: ", std_power_no_comp, "\n")
+plot_power_distribution(magnet_power_no_comp_mean, column_index=4, filename='distribution_power_mean_no_comp.svg')
+plot_power_distribution(magnet_power_comp_mean, column_index=4, filename='distribution_power_mean_comp.svg')
