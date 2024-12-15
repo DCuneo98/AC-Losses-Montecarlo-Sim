@@ -9,7 +9,7 @@ start_time = time.time()
 
 ### PARAMETERS ###
 file_name = 'results_simulation.txt'
-monte_carlo_iterations_array = np.arange(0,10000)
+monte_carlo_iterations_array = np.arange(0,10)
 # Current cycle parameters
 I_min = np.float32(0)  # valore minimo in A
 I_max = np.float32(3e3)  # valore massimo in A
@@ -56,6 +56,7 @@ print("Simulation completed in {:.2f} seconds.".format(time.time() - start_time)
 write_results_to_file(file_name,magnet_power_no_comp_mean, magnet_power_comp_mean,mean_power_comp,std_power_comp,mean_power_no_comp,std_power_no_comp)
 
 plot_current_cycle(I_min, I_max, I_ramp_rate, time_plateau, dt, N_max=4)
+
 plot_power_cycles(N_values, mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp)
 plot_power_distribution(magnet_power_no_comp_mean, column_index=4, filename='distribution_power_mean_no_comp.svg')
 plot_power_distribution(magnet_power_comp_mean, column_index=4, filename='distribution_power_mean_comp.svg')

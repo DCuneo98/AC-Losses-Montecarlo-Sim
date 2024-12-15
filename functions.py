@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+
 ###PARAMETERS###
 # Current cycle parameters
 I_min = np.float32(0)  # valore minimo in A
@@ -84,7 +85,7 @@ def voltage_magnet_and_voltage_derivative_sensor(current, inductance, resistance
 
 def voltages_post_ISOBLOCK(voltage_magnet,voltage_derivative_sensor,total_samples): 
     attenuation_factor_ISOBLOCK = np.float32(10)
-    gain_error_ISOBLOCK = np.float32(0.2 / 100 + 0.005)
+    gain_error_ISOBLOCK = np.float32(0.2 / 100)
     offset_error_ISOBLOCK = np.float32(500e-6)
     
     voltage_magnet_ISO = (((1 + gain_error_ISOBLOCK * np.random.randn(total_samples).astype(np.float32)) * voltage_magnet) / attenuation_factor_ISOBLOCK) + offset_error_ISOBLOCK * np.random.randn(total_samples).astype(np.float32)
@@ -100,15 +101,15 @@ def voltages_in_cRIO(voltage_magnet, voltage_derivative_sensor, total_samples):
     range_cRIO = np.float32(10.52)
     ADC_resolution = np.float32(1.2e-6)
     
-    voltage_magnet_measured_cRIO = ((1 + gain_error_cRIO * np.random.randn(total_samples).astype(np.float32)) * voltage_magnet) + (offset_error_cRIO * np.random.randn(total_samples).astype(np.float32) * range_cRIO)
-    voltage_ds_measured_cRIO = ((1 + gain_error_cRIO * np.random.randn(total_samples).astype(np.float32)) * voltage_derivative_sensor) + (offset_error_cRIO * np.random.randn(total_samples).astype(np.float32) * range_cRIO)
+    voltage_magnet_cRIO = ((1 + gain_error_cRIO * np.random.randn(total_samples).astype(np.float32)) * voltage_magnet) + (offset_error_cRIO * np.random.randn(total_samples).astype(np.float32) * range_cRIO)
+    voltage_ds_cRIO = ((1 + gain_error_cRIO * np.random.randn(total_samples).astype(np.float32)) * voltage_derivative_sensor) + (offset_error_cRIO * np.random.randn(total_samples).astype(np.float32) * range_cRIO)
     
     del voltage_magnet, voltage_derivative_sensor
     
-    voltage_magnet_measured_cRIO = np.round(voltage_magnet_measured_cRIO / ADC_resolution) * ADC_resolution
-    voltage_ds_measured_cRIO = np.round(voltage_ds_measured_cRIO / ADC_resolution) * ADC_resolution
+    voltage_magnet_cRIO = np.round(voltage_magnet_cRIO / ADC_resolution) * ADC_resolution
+    voltage_ds_cRIO = np.round(voltage_ds_cRIO / ADC_resolution) * ADC_resolution
     
-    return voltage_magnet_measured_cRIO, voltage_ds_measured_cRIO
+    return voltage_magnet_cRIO, voltage_ds_cRIO
 
 
 def current_reading(current, total_samples): 
@@ -117,19 +118,23 @@ def current_reading(current, total_samples):
     offset_error_cRIO = np.float32(0.008 / 100)
     range_cRIO = np.float32(10.52)
     ADC_resolution = np.float32(1.2e-6)
-    I_measured = (1 + gain_error_cRIO * np.random.randn(total_samples).astype(np.float32)) * current + (offset_error_cRIO * np.random.randn(total_samples).astype(np.float32) * range_cRIO / k_DCCT)
+    
+    I_measured = current *k_DCCT
+    I_measured = ((1 + gain_error_cRIO * np.random.randn(total_samples).astype(np.float32)) * I_measured) + (offset_error_cRIO * np.random.randn(total_samples).astype(np.float32) * range_cRIO) 
     I_measured = np.round(I_measured / ADC_resolution) * ADC_resolution
     
     del current
     
     return I_measured
 
-def power_estimation(voltage_magnet, voltage_derivative_sensor, current, number_samples):
+def power_estimation(voltage_magnet, voltage_derivative_sensor, current, current_measured, number_samples):
+    k_DCCT = np.float32(10/np.max(current))
     attenuation_factor_ISOBLOCK = np.float32(10)
-    magnet_power_no_comp = voltage_magnet * current* attenuation_factor_ISOBLOCK
+    
+    magnet_power_no_comp = (voltage_magnet* attenuation_factor_ISOBLOCK)*(current_measured/k_DCCT)
     magnet_power_no_comp_mean = np.sum(magnet_power_no_comp) / number_samples
 
-    magnet_power_comp = (voltage_magnet - voltage_derivative_sensor) * current* attenuation_factor_ISOBLOCK
+    magnet_power_comp = ((voltage_magnet - voltage_derivative_sensor) * attenuation_factor_ISOBLOCK)*(current_measured/k_DCCT)
     magnet_power_comp_mean = np.sum(magnet_power_comp) / number_samples
 
     del magnet_power_no_comp, magnet_power_comp
@@ -146,11 +151,11 @@ def simulate(N, monte_carlo_iterations):
     number_integration_samples = round(N * period / dt)
     del t 
     voltage_magnet, voltage_ds_measured = voltage_magnet_and_voltage_derivative_sensor(I, L_magnet, R_magnet, kds, kds_stdv, dt)
-    voltage_magnet_ISO, voltage_ds_measured_ISO = voltages_post_ISOBLOCK(voltage_magnet, voltage_ds_measured, total_samples) 
-    voltage_magnet_measured_cRIO, voltage_ds_measured_cRIO = voltages_in_cRIO (voltage_magnet_ISO,voltage_ds_measured_ISO, total_samples)
+    voltage_magnet, voltage_ds_measured = voltages_post_ISOBLOCK(voltage_magnet, voltage_ds_measured, total_samples) 
+    voltage_magnet, voltage_ds_measured = voltages_in_cRIO (voltage_magnet,voltage_ds_measured, total_samples)
     I_measured = current_reading(I, total_samples)
     
-    magnet_power_comp, magnet_power_no_comp = power_estimation(voltage_magnet_measured_cRIO, voltage_ds_measured_cRIO, I_measured, total_samples)
+    magnet_power_comp, magnet_power_no_comp = power_estimation(voltage_magnet, voltage_ds_measured, I, I_measured, total_samples)
     
     return magnet_power_comp, magnet_power_no_comp
 
@@ -180,34 +185,7 @@ def plot_power_cycles(cycle_number_array, mean_power_comp, mean_power_no_comp, s
     plt.xticks(cycle_number_array)    
     plt.savefig('power_losses_statistics.svg', format='svg')
     plt.show()
-    
-    
-def write_results_to_file(file_path, magnet_power_no_comp_mean, magnet_power_comp_mean,mean_power_comp,std_power_comp,mean_power_no_comp,std_power_no_comp):
-    if os.path.exists(file_path):
-        os.remove(file_path)
-    
-    with open(file_path, 'w') as file:
-        # Scrivi la potenza media non compensata
-        file.write("Mean power (not compensated)(acquisition cycle number in the columns and montecarlo iteration rows):\n")
-        np.savetxt(file, magnet_power_no_comp_mean, fmt='%.6f')
-        # Lascia una riga vuota
-        file.write("\n")
-        file.write("Mean power (compensated) (number of cycles of acquisition in the columns and montecarlo iteration rows):\n")
-        np.savetxt(file, magnet_power_comp_mean, fmt='%.6f')
-        file.write("\n")
-        file.write("########## STATISTICS ##########:\n \n")
-        file.write("Compensated Mean (in rows the statistic of each acquisition cycle number is given):\n")
-        np.savetxt(file, mean_power_comp, fmt='%.6f')
-        file.write("\n \n")
-        file.write("Not Compensated Mean:\n")
-        np.savetxt(file, mean_power_no_comp, fmt='%.6f')
-        file.write("\n \n")
-        file.write("Compensated StdDv:\n")
-        np.savetxt(file, std_power_comp, fmt='%.6f')
-        file.write("\n \n")
-        file.write("Not Compensated StdDv:\n")
-        np.savetxt(file, std_power_no_comp, fmt='%.6f')
-        
+
 def plot_current_cycle(I_min, I_max, I_ramp_rate, time_plateau, dt, N_max):
     # Calcola i parametri del ciclo
     time_transient = (I_max - I_min) / I_ramp_rate
@@ -240,3 +218,33 @@ def plot_power_distribution(magnet_power_mean, column_index, filename):
     plt.grid(True)
     plt.savefig(filename, format='svg')
     plt.show()
+
+    
+def write_results_to_file(file_path, magnet_power_no_comp_mean, magnet_power_comp_mean,mean_power_comp,std_power_comp,mean_power_no_comp,std_power_no_comp):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    
+    with open(file_path, 'w') as file:
+        # Scrivi la potenza media non compensata
+        file.write("Mean power (not compensated)(acquisition cycle number in the columns and montecarlo iteration rows):\n")
+        np.savetxt(file, magnet_power_no_comp_mean, fmt='%.6f')
+        # Lascia una riga vuota
+        file.write("\n")
+        file.write("Mean power (compensated) (number of cycles of acquisition in the columns and montecarlo iteration rows):\n")
+        np.savetxt(file, magnet_power_comp_mean, fmt='%.6f')
+        file.write("\n")
+        file.write("########## STATISTICS ##########:\n \n")
+        file.write("Compensated Mean (in rows the statistic of each acquisition cycle number is given):\n")
+        np.savetxt(file, mean_power_comp, fmt='%.6f')
+        file.write("\n \n")
+        file.write("Not Compensated Mean:\n")
+        np.savetxt(file, mean_power_no_comp, fmt='%.6f')
+        file.write("\n \n")
+        file.write("Compensated StdDv:\n")
+        np.savetxt(file, std_power_comp, fmt='%.6f')
+        file.write("\n \n")
+        file.write("Not Compensated StdDv:\n")
+        np.savetxt(file, std_power_no_comp, fmt='%.6f')
+
+
+
