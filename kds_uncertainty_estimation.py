@@ -27,6 +27,7 @@ la_tol = la * (1 + (2 * np.random.rand(nmc) - 1) * tol_la)
 lc_tol = lc * (1 + (2 * np.random.rand(nmc) - 1) * tol_lc)
 Ac_tol = Ac * (1 + (2 * np.random.rand(nmc) - 1) * tol_Ac)
 kds_tol = mu * n2 * Ac_tol / (lc_tol + 2 * mu_r * la_tol)
+print(np.average(kds_tol))
 
 # plotting
 plt.figure()
