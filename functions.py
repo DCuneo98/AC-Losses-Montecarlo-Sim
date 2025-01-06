@@ -1,8 +1,13 @@
+#################
+### LIBRARIES ###
+#################
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-### FUNCTIONS INCLUDED IN THE MAIN PARALLELIZED SCRIPT ###
+##################################
+### FUNCTIONS INCLUDED IN MAIN ###
+##################################
 
 def sinusoidal_transition(x, x0, x1, y0, y1):
     t = (x - x0) / (x1 - x0)
@@ -101,7 +106,7 @@ def power_estimation(voltage_magnet, voltage_derivative_sensor, current_measured
     return magnet_power_no_comp, magnet_power_comp
 
 def simulate(I_min, I_max, I_ramp_rate, time_offset_current, time_offset_voltages, time_plateau, L_magnet, kds, gain_ds, offset_ds, dt, P_ac, N, 
-             period, monte_carlo_iterations, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution, k_DCCT, gain_error_DCCT, offset_DCCT):
+             period, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution, k_DCCT, gain_error_DCCT, offset_DCCT, cycles):
     
     total_time = N * period
     t = np.arange(0, total_time, dt)
@@ -109,17 +114,46 @@ def simulate(I_min, I_max, I_ramp_rate, time_offset_current, time_offset_voltage
     I_voltage = generate_current_ramp(I_min, I_max, I_ramp_rate, time_plateau, t, time_offset_voltages)
     I_current = generate_current_ramp(I_min, I_max, I_ramp_rate, time_plateau, t, time_offset_current)
     R_magnet = P_ac / np.mean(I_voltage[0:int(period / dt)]**2)
-    print(R_magnet)
 
-    del t 
     voltage_magnet, voltage_ds_measured = voltage_magnet_and_voltage_derivative_sensor(I_voltage, L_magnet, R_magnet, kds, gain_ds, offset_ds, dt)
     voltage_magnet, voltage_ds_measured = voltages_post_ISOBLOCK(voltage_magnet, voltage_ds_measured, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK) 
     voltage_magnet, voltage_ds_measured = voltages_in_cRIO(voltage_magnet, voltage_ds_measured, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution)
     I_measured = current_reading(I_current, k_DCCT, gain_error_DCCT, offset_DCCT, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution)
     
-    magnet_power_comp, magnet_power_no_comp = power_estimation(voltage_magnet, voltage_ds_measured, I_measured, k_DCCT, attenuation_factor_ISOBLOCK)
+    magnet_power_no_comp, magnet_power_comp = power_estimation(voltage_magnet, voltage_ds_measured, I_measured, k_DCCT, attenuation_factor_ISOBLOCK)
+
+    # Calcolo delle medie delle potenze 
+    end_indices = (cycles * period / dt).astype(int)
     
-    return magnet_power_comp, magnet_power_no_comp
+    magnet_power_no_comp_avg = np.array([np.mean(magnet_power_no_comp[:end_idx]) for end_idx in end_indices])
+    magnet_power_comp_avg = np.array([np.mean(magnet_power_comp[:end_idx]) for end_idx in end_indices])
+    
+    del magnet_power_no_comp, magnet_power_comp
+    
+    return t, magnet_power_comp_avg, magnet_power_no_comp_avg
+
+def write_results_to_file(file_path, magnet_power_no_comp_mean, magnet_power_comp_mean, mean_power_comp, std_power_comp, mean_power_no_comp, std_power_no_comp):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    
+    with open(file_path, 'w') as file:
+        # Write the non-compensated mean power
+        file.write("Mean power (not compensated)(acquisition):\n")
+        np.savetxt(file, magnet_power_no_comp_mean, delimiter=",")
+        
+        # Write the compensated mean power
+        file.write("\nMean power (compensated)(acquisition):\n")
+        np.savetxt(file, magnet_power_comp_mean, delimiter=",")
+        
+        # Write the final results for compensated power
+        file.write("\nFinal results for compensated power:\n")
+        file.write(f"Mean power for compensated: {mean_power_comp}\n")
+        file.write(f"Std of power for compensated: {std_power_comp}\n")
+        
+        # Write the final results for non-compensated power
+        file.write("\nFinal results for non-compensated power:\n")
+        file.write(f"Mean power for non-compensated: {mean_power_no_comp}\n")
+        file.write(f"Std of power for non-compensated: {std_power_no_comp}\n")
 
 def statistics_calculation(magnet_power_comp_mean, magnet_power_no_comp_mean):
     mean_power_comp = np.mean(magnet_power_comp_mean, axis=0)
@@ -131,6 +165,10 @@ def statistics_calculation(magnet_power_comp_mean, magnet_power_no_comp_mean):
     del magnet_power_no_comp_mean, magnet_power_comp_mean
     
     return mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp
+
+######################
+### PLOT FUNCTIONS ###
+######################
 
 def plot_power_cycles(cycle_number_array, mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp): 
     P_ac = 37.6  # Power losses in W
@@ -180,25 +218,3 @@ def plot_power_distribution(magnet_power_mean, column_index, filename):
     plt.savefig(filename, format='svg')
     plt.show()
   
-def write_results_to_file(file_path, magnet_power_no_comp_mean, magnet_power_comp_mean):#, mean_power_comp, std_power_comp, mean_power_no_comp, std_power_no_comp):
-    if os.path.exists(file_path):
-        os.remove(file_path)
-    
-    with open(file_path, 'w') as file:
-        # Write the non-compensated mean power
-        file.write("Mean power (not compensated)(acquisition):\n")
-        np.savetxt(file, magnet_power_no_comp_mean, delimiter=",")
-        
-        # Write the compensated mean power
-        file.write("\nMean power (compensated)(acquisition):\n")
-        np.savetxt(file, magnet_power_comp_mean, delimiter=",")
-        
-        # # Write the final results for compensated power
-        # file.write("\nFinal results for compensated power:\n")
-        # file.write(f"Mean power for compensated: {mean_power_comp}\n")
-        # file.write(f"Std of power for compensated: {std_power_comp}\n")
-        
-        # # Write the final results for non-compensated power
-        # file.write("\nFinal results for non-compensated power:\n")
-        # file.write(f"Mean power for non-compensated: {mean_power_no_comp}\n")
-        # file.write(f"Std of power for non-compensated: {std_power_no_comp}\n")
