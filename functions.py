@@ -14,9 +14,7 @@ def sinusoidal_transition(x, x0, x1, y0, y1):
     t = np.clip(t, 0, 1)
     return y0 + (y1 - y0) * 0.5 * (1 - np.cos(np.pi * t))
 
-def generate_current_ramp(I_min, I_max, I_ramp_rate, time_plateau, t, time_offset):
-    time_ramp = (I_max - I_min) / I_ramp_rate
-    period = 2 * time_plateau + 2 * time_ramp
+def generate_current_ramp(I_min, I_max, time_plateau, t, time_offset, time_ramp, period):
 
     time_offset = np.random.uniform(time_offset - 0.01 * time_offset, time_offset + 0.01 * time_offset)
     t_mod = np.mod(t - time_offset, period)
@@ -47,7 +45,7 @@ def generate_current_ramp(I_min, I_max, I_ramp_rate, time_plateau, t, time_offse
 def current_reading(current, k_DCCT, gain_error_DCCT, offset_DCCT, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution): 
     total_samples = len(current)
     I_measured = ((1+ gain_error_DCCT* np.random.randn(total_samples))*current)* k_DCCT + np.random.uniform(low = -offset_DCCT, high=offset_DCCT, size= total_samples) #Adding the uncertainty of DCCT
-    I_measured = ((1+ gain_error_cRIO* np.random.randn(total_samples))* I_measured) + np.random.uniform(low=-offset_error_cRIO, high=offset_error_cRIO, size=total_samples)#Adding the uncertainty of cRIO
+    I_measured = ((1+ gain_error_cRIO* np.random.randn(total_samples))* I_measured) + range_cRIO*np.random.uniform(low=-offset_error_cRIO, high=offset_error_cRIO, size=total_samples)#Adding the uncertainty of cRIO
     I_measured = np.round(I_measured / ADC_resolution) * ADC_resolution #Adding the quantization error
     
     del current
@@ -68,12 +66,22 @@ def voltage_magnet_and_voltage_derivative_sensor(current, inductance, resistance
     
     return voltage_magnet, voltage_ds_measured
 
+def voltage_correction(current, proportionality_factor, offset_correction, time_interval):
+    dI_dt = np.concatenate((np.diff(current), [0])) / time_interval
+    
+    k_ds_correction = proportionality_factor + np.random.uniform(low = -offset_correction, high=offset_correction, size= len(current))
+    voltage_correction = k_ds_correction* dI_dt
+    
+    del dI_dt, k_ds_correction
+    
+    return voltage_correction
+
 def voltages_post_ISOBLOCK(voltage_magnet, voltage_derivative_sensor, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK): 
     total_samples = len(voltage_magnet)
 
     voltage_magnet_ISO = (((1 + gain_error_ISOBLOCK * np.random.randn(total_samples)) * voltage_magnet) / attenuation_factor_ISOBLOCK) + offset_error_ISOBLOCK * np.random.uniform(low=-1, high=1, size=total_samples)
     voltage_ds_measured_ISO = (((1 + gain_error_ISOBLOCK * np.random.randn(total_samples)) * voltage_derivative_sensor) / attenuation_factor_ISOBLOCK) + offset_error_ISOBLOCK * np.random.uniform(low=-1, high=1, size=total_samples)
-
+    
     del voltage_magnet, voltage_derivative_sensor
     
     return voltage_magnet_ISO, voltage_ds_measured_ISO
@@ -91,48 +99,66 @@ def voltages_in_cRIO(voltage_magnet, voltage_derivative_sensor, gain_error_cRIO,
     
     return voltage_magnet_cRIO, voltage_ds_cRIO
 
-def power_estimation(voltage_magnet, voltage_derivative_sensor, current_measured, k_DCCT, attenuation_factor_ISOBLOCK ):
-    number_samples = len(current_measured)
+def power_estimation(voltage_magnet, voltage_derivative_sensor, voltage_correction, current_measured, current_correction, k_DCCT, attenuation_factor_ISOBLOCK ):
     
     magnet_power_no_comp = (voltage_magnet * attenuation_factor_ISOBLOCK) * (current_measured / k_DCCT)
-    #magnet_power_no_comp_mean = np.sum(magnet_power_no_comp) / number_samples
 
     magnet_power_comp = ((voltage_magnet - voltage_derivative_sensor) * attenuation_factor_ISOBLOCK) * (current_measured / k_DCCT)
-    #magnet_power_comp_mean = np.sum(magnet_power_comp) / number_samples
+    
+    magnet_power_corr = (((voltage_magnet) * attenuation_factor_ISOBLOCK) -  voltage_correction) * (current_correction / k_DCCT)
+    
+    del voltage_magnet, voltage_derivative_sensor, voltage_correction, current_measured, current_correction
+    
+    return magnet_power_no_comp, magnet_power_comp, magnet_power_corr
 
-    #del magnet_power_no_comp, magnet_power_comp
+def simulate(I_min, I_max,  time_offset_current, time_offset_voltages, time_offet_correction, time_plateau, time_ramp, t,  L_magnet, kds, gain_ds, offset_ds, offset_correction, 
+             dt, P_ac, period, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK, 
+             gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution, k_DCCT, gain_error_DCCT, offset_DCCT, cycles):
         
-    #return magnet_power_comp_mean, magnet_power_no_comp_mean
-    return magnet_power_no_comp, magnet_power_comp
-
-def simulate(I_min, I_max, I_ramp_rate, time_offset_current, time_offset_voltages, time_plateau, L_magnet, kds, gain_ds, offset_ds, dt, P_ac, N, 
-             period, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution, k_DCCT, gain_error_DCCT, offset_DCCT, cycles):
+    I_voltage = generate_current_ramp(I_min, I_max, time_plateau, t, time_offset_voltages, time_ramp, period)
+    I_current = generate_current_ramp(I_min, I_max, time_plateau, t, time_offset_current, time_ramp, period)
+    I_correction = generate_current_ramp(I_min, I_max, time_plateau, t, time_offet_correction, time_ramp, period)
     
-    total_time = N * period
-    t = np.arange(0, total_time, dt)
-    
-    I_voltage = generate_current_ramp(I_min, I_max, I_ramp_rate, time_plateau, t, time_offset_voltages)
-    I_current = generate_current_ramp(I_min, I_max, I_ramp_rate, time_plateau, t, time_offset_current)
     R_magnet = P_ac / np.mean(I_voltage[0:int(period / dt)]**2)
 
     voltage_magnet, voltage_ds_measured = voltage_magnet_and_voltage_derivative_sensor(I_voltage, L_magnet, R_magnet, kds, gain_ds, offset_ds, dt)
-    voltage_magnet, voltage_ds_measured = voltages_post_ISOBLOCK(voltage_magnet, voltage_ds_measured, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK) 
-    voltage_magnet, voltage_ds_measured = voltages_in_cRIO(voltage_magnet, voltage_ds_measured, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution)
-    I_measured = current_reading(I_current, k_DCCT, gain_error_DCCT, offset_DCCT, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution)
+    voltage_corr = voltage_correction(I_voltage, kds, offset_correction, dt)
     
-    magnet_power_no_comp, magnet_power_comp = power_estimation(voltage_magnet, voltage_ds_measured, I_measured, k_DCCT, attenuation_factor_ISOBLOCK)
+    voltage_magnet, voltage_ds_measured = voltages_post_ISOBLOCK(voltage_magnet, voltage_ds_measured, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK) 
+    voltage_magnet, voltage_ds_measured= voltages_in_cRIO(voltage_magnet, voltage_ds_measured, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution)
+    
+    I_measured = current_reading(I_current, k_DCCT, gain_error_DCCT, offset_DCCT, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution)
+    I_measured_correction = current_reading(I_correction, k_DCCT, gain_error_DCCT, offset_DCCT, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution)
+    
+    magnet_power_no_comp, magnet_power_comp, magnet_power_corr = power_estimation(voltage_magnet, voltage_ds_measured, voltage_corr, I_measured, I_measured_correction, k_DCCT, attenuation_factor_ISOBLOCK)
 
     # Calcolo delle medie delle potenze 
     end_indices = (cycles * period / dt).astype(int)
     
     magnet_power_no_comp_avg = np.array([np.mean(magnet_power_no_comp[:end_idx]) for end_idx in end_indices])
     magnet_power_comp_avg = np.array([np.mean(magnet_power_comp[:end_idx]) for end_idx in end_indices])
+    magnet_power_corr_avg = np.array([np.mean(magnet_power_corr[:end_idx]) for end_idx in end_indices])
     
-    del magnet_power_no_comp, magnet_power_comp
+    del magnet_power_no_comp, magnet_power_comp, magnet_power_corr
     
-    return t, magnet_power_comp_avg, magnet_power_no_comp_avg
+    return magnet_power_no_comp_avg, magnet_power_comp_avg, magnet_power_corr_avg
 
-def write_results_to_file(file_path, magnet_power_no_comp_mean, magnet_power_comp_mean, mean_power_comp, std_power_comp, mean_power_no_comp, std_power_no_comp):
+def statistics_calculation(magnet_power_no_comp_mean, magnet_power_comp_mean, magnet_power_corr_mean):
+    mean_power_no_comp = np.mean(magnet_power_no_comp_mean, axis=0)
+    mean_power_comp = np.mean(magnet_power_comp_mean, axis=0)
+    mean_power_corr = np.mean(magnet_power_corr_mean, axis=0)
+    
+    
+    
+    std_power_no_comp = np.std(magnet_power_no_comp_mean, axis=0)
+    std_power_comp = np.std(magnet_power_comp_mean, axis=0)
+    std_power_corr = np.std(magnet_power_corr_mean, axis=0)
+    
+    del magnet_power_no_comp_mean, magnet_power_comp_mean, magnet_power_corr_mean
+    
+    return  mean_power_no_comp, mean_power_comp, mean_power_corr, std_power_no_comp, std_power_comp, std_power_corr
+
+def write_results_to_file(file_path, magnet_power_no_comp_mean, magnet_power_comp_mean, magnet_power_corr_avg, mean_power_no_comp, std_power_no_comp, mean_power_comp, std_power_comp, mean_power_corr, std_power_corr):
     if os.path.exists(file_path):
         os.remove(file_path)
     
@@ -145,36 +171,39 @@ def write_results_to_file(file_path, magnet_power_no_comp_mean, magnet_power_com
         file.write("\nMean power (compensated)(acquisition):\n")
         np.savetxt(file, magnet_power_comp_mean, delimiter=",")
         
-        # Write the final results for compensated power
-        file.write("\nFinal results for compensated power:\n")
-        file.write(f"Mean power for compensated: {mean_power_comp}\n")
-        file.write(f"Std of power for compensated: {std_power_comp}\n")
+        # Write the corrected mean power
+        file.write("\nMean power (corrected):\n")
+        np.savetxt(file, magnet_power_corr_avg, delimiter=",")
         
         # Write the final results for non-compensated power
         file.write("\nFinal results for non-compensated power:\n")
         file.write(f"Mean power for non-compensated: {mean_power_no_comp}\n")
         file.write(f"Std of power for non-compensated: {std_power_no_comp}\n")
+        
+        # Write the final results for compensated power
+        file.write("\nFinal results for compensated power:\n")
+        file.write(f"Mean power for compensated: {mean_power_comp}\n")
+        file.write(f"Std of power for compensated: {std_power_comp}\n")
+        
+               
+        # Write the final results for non-compensated power
+        file.write("\nFinal results for corrected power:\n")
+        file.write(f"Mean power for corrected: {mean_power_corr}\n")
+        file.write(f"Std of power for corrected: {std_power_corr}\n")
 
-def statistics_calculation(magnet_power_comp_mean, magnet_power_no_comp_mean):
-    mean_power_comp = np.mean(magnet_power_comp_mean, axis=0)
-    mean_power_no_comp = np.mean(magnet_power_no_comp_mean, axis=0)
-
-    std_power_comp = np.std(magnet_power_comp_mean, axis=0)
-    std_power_no_comp = np.std(magnet_power_no_comp_mean, axis=0)
-    
-    del magnet_power_no_comp_mean, magnet_power_comp_mean
-    
-    return mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp
 
 ######################
 ### PLOT FUNCTIONS ###
 ######################
 
-def plot_power_cycles(cycle_number_array, mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp): 
+def plot_power_cycles(cycle_number_array, mean_power_no_comp, mean_power_comp, mean_power_corr, std_power_no_comp, std_power_comp, std_power_corr): 
     P_ac = 37.6  # Power losses in W
     plt.figure(figsize=(12, 6))
-    plt.errorbar(cycle_number_array, mean_power_comp, yerr=std_power_comp, fmt='o', capsize=5, label='Compensated Power losses')
-    plt.errorbar(cycle_number_array, mean_power_no_comp, yerr=std_power_no_comp, fmt='o', capsize=5, label='Uncompensated Power losses')
+    
+    plt.errorbar(cycle_number_array, mean_power_no_comp, yerr=std_power_no_comp, fmt='o', capsize=5, label='Power losses: NC')
+    plt.errorbar(cycle_number_array, mean_power_comp, yerr=std_power_comp, fmt='o', capsize=5, label='Power losses: compensation')
+    plt.errorbar(cycle_number_array, mean_power_corr, yerr=std_power_corr, fmt='o', capsize=5, label='Power losses: correction')
+    
     plt.axhline(y=P_ac, xmin=0, xmax=1, linestyle='dashed', color='k', label='Power losses DISCORAP')
     plt.xlabel('Number of acquisition cycles')
     plt.ylabel('Power losses (W)')

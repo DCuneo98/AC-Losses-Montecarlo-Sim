@@ -12,10 +12,10 @@ start_time = time.time()
 #############################
 ### SIMULATION PARAMETERS ###
 #############################
-file_name = 'results_simulation.txt'  # Output file name
+file_name = 'results_1k_MC_100_cycles.txt'  # Output file name
 N_tot_cycles = 100 # N_values array for different cycles in the simulation
-monte_carlo_iterations = 2  # Number of Monte Carlo iterations to simulate
-cycles = np.array([1, 5, 10,20,30,40,50,60,75,100])  # Number of cycles on which calculate statistics
+monte_carlo_iterations = 1 # Number of Monte Carlo iterations to simulate
+cycles = np.array([1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100]) # Number of cycles on which calculate statistics
 num_cycles = len(cycles)
 
 ################################
@@ -26,9 +26,10 @@ I_max = 3e3  # Maximum current in A
 I_ramp_rate = 2e3  # Ramp rate in A/s
 time_plateau = 3.5  # Plateau time in s
 I_average = (I_max + I_min) / 2  # Average current in A
-time_transient = (I_max - I_min) / I_ramp_rate  # Ramp duration in s
-period = 2 * time_plateau + 2 * time_transient  # Cycle period in s
+time_ramp = (I_max - I_min) / I_ramp_rate  # Ramp duration in s
+period = 2 * time_plateau + 2 * time_ramp  # Cycle period in s
 freq = 1 / period  # Frequency in Hz
+total_time = N_tot_cycles * period
 
 ###############################
 ### Magnet model parameters ###
@@ -47,10 +48,10 @@ n2 = 20000  # Coil turns
 la = 1.0e-3  # Air gap length in m
 lc = 0.3  # Magnetic path length in m
 kds = mu * Ac * n2 / (lc + 2 * mu_r * la)  # Derivative sensor, constant
-kds_tol = 0.0019  # Tolerance on kds
+kds_comp_off = 0.0019  # Tolerance on kds
 gain_kds = 0.63/100
-
-#time_delay_ds = 250e-3
+offset_kds_corr = 0.1*kds
+time_delay_corr = 250e-6
 
 ##################################
 ### Instrumentation parameters ###
@@ -77,38 +78,43 @@ time_delay_DCCT = 3e-6 #DCCT time delay
 ###########################################
 time_delay_current = (time_delay_DCCT*np.random.randn()) + np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO, high = time_delay_cRIO+0.01*time_delay_cRIO)
 time_delay_voltage = np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO,  high = time_delay_cRIO+0.01*time_delay_cRIO) + np.random.uniform(low = time_delay_ISOBLOCK[0], high = time_delay_ISOBLOCK[1])
-
+time_delay_corr = time_delay_current + np.random.uniform(low = time_delay_corr-0.01*time_delay_corr, high = time_delay_corr+0.01*time_delay_corr)
 
 #Initialize vectors to save variables
 all_magnet_power_no_comp_avg = np.zeros((monte_carlo_iterations, num_cycles))
 all_magnet_power_comp_avg = np.zeros((monte_carlo_iterations, num_cycles))
+all_magnet_power_corr_avg = np.zeros((monte_carlo_iterations, num_cycles))
 
+t = np.arange(0, total_time, dt)
 
 for i in range(monte_carlo_iterations):
     # Main simulation loop
-    t, magnet_power_comp_avg, magnet_power_no_comp_avg = simulate(
-        I_min, I_max, I_ramp_rate, time_delay_current, time_delay_voltage, time_plateau, L_magnet, kds, gain_kds, kds_tol,
-        dt, P_ac, N_tot_cycles, period, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK,
+    magnet_power_no_comp_avg, magnet_power_comp_avg, magnet_power_corr_avg = simulate(
+        I_min, I_max, time_delay_current, time_delay_voltage, time_delay_corr, time_plateau, time_ramp, t,  L_magnet, kds, gain_kds, kds_comp_off, offset_kds_corr,
+        dt, P_ac, period, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK,
         gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution, k_DCCT, gain_error_DCCT, offset_DCCT, cycles
     )
     all_magnet_power_no_comp_avg[i, :] = magnet_power_no_comp_avg
     all_magnet_power_comp_avg[i, :] = magnet_power_comp_avg
-    print("Monte Carlo iteration n. ", i)
+    all_magnet_power_corr_avg[i, :] = magnet_power_corr_avg
+    gc.collect()
+    print("Monte Carlo iteration n. ", i+1)
 
-
-mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp = statistics_calculation(all_magnet_power_comp_avg, all_magnet_power_no_comp_avg)
+mean_power_no_comp, mean_power_comp, mean_power_corr, std_power_no_comp, std_power_comp, std_power_corr = statistics_calculation(all_magnet_power_no_comp_avg, all_magnet_power_comp_avg, all_magnet_power_corr_avg)
 
 # Writing the results on the file
 
-write_results_to_file(file_name, all_magnet_power_no_comp_avg, all_magnet_power_comp_avg, mean_power_comp, std_power_comp, mean_power_no_comp, std_power_no_comp)
+write_results_to_file(file_name, all_magnet_power_no_comp_avg, all_magnet_power_comp_avg, all_magnet_power_corr_avg, mean_power_comp, std_power_comp, mean_power_no_comp, std_power_no_comp, mean_power_corr, std_power_corr)
 
 gc.collect()
+
 print("Simulation completed in {:.2f} seconds.".format(time.time() - start_time))
 
 #############
 ### PLOTS ###
 #############
 
-plot_power_cycles(cycles, mean_power_comp, mean_power_no_comp, std_power_comp, std_power_no_comp)
-plot_power_distribution(all_magnet_power_comp_avg, column_index=4, filename="distribuzione_compensate")
-plot_power_distribution(all_magnet_power_no_comp_avg, column_index=4, filename="distribuzione_non_compensate")
+plot_power_cycles(cycles, mean_power_no_comp, mean_power_comp, mean_power_corr, std_power_no_comp, std_power_comp,  std_power_corr)
+plot_power_distribution(all_magnet_power_no_comp_avg, column_index=4, filename="distr_no_comp")
+plot_power_distribution(all_magnet_power_comp_avg, column_index=4, filename="distr_comp")
+plot_power_distribution(all_magnet_power_corr_avg, column_index=4, filename="distr_corr")
