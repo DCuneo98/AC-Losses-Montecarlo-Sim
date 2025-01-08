@@ -9,6 +9,13 @@ import os
 ### FUNCTIONS INCLUDED IN MAIN ###
 ##################################
 
+def time_delay(time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOCK, time_delay_correction): 
+    time_delay_current = np.random.uniform(low = time_delay_DCCT[0], high = time_delay_DCCT[1]) + np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO, high = time_delay_cRIO+0.01*time_delay_cRIO)
+    time_delay_voltage = np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO,  high = time_delay_cRIO+0.01*time_delay_cRIO) + np.random.uniform(low = time_delay_ISOBLOCK[0], high = time_delay_ISOBLOCK[1])
+    time_delay_corr = time_delay_current + np.random.uniform(low = time_delay_correction-0.1*time_delay_correction, high = time_delay_correction+0.1*time_delay_correction)
+
+    return time_delay_current, time_delay_voltage, time_delay_corr
+
 def sinusoidal_transition(x, x0, x1, y0, y1):
     t = (x - x0) / (x1 - x0)
     t = np.clip(t, 0, 1)
@@ -111,16 +118,16 @@ def power_estimation(voltage_magnet, voltage_derivative_sensor, voltage_correcti
     
     return magnet_power_no_comp, magnet_power_comp, magnet_power_corr
 
-def simulate(I_min, I_max,  time_offset_current, time_offset_voltages, time_offet_correction, time_plateau, time_ramp, t,  L_magnet, kds, gain_ds, offset_ds, offset_correction, 
-             dt, P_ac, period, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK, 
+def simulate(I_min, I_max,  time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOCK, time_delay_correction, time_plateau, time_ramp, t,  L_magnet, R_magnet, kds, gain_ds, offset_ds, offset_correction, 
+             dt, period, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK, 
              gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution, k_DCCT, gain_error_DCCT, offset_DCCT, cycles):
-        
-    I_voltage = generate_current_ramp(I_min, I_max, time_plateau, t, time_offset_voltages, time_ramp, period)
-    I_current = generate_current_ramp(I_min, I_max, time_plateau, t, time_offset_current, time_ramp, period)
-    I_correction = generate_current_ramp(I_min, I_max, time_plateau, t, time_offet_correction, time_ramp, period)
     
-    R_magnet = P_ac / np.mean(I_voltage[0:int(period / dt)]**2)
-
+    time_delay_current, time_delay_voltage, time_delay_corr = time_delay(time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOCK, time_delay_correction)
+        
+    I_voltage = generate_current_ramp(I_min, I_max, time_plateau, t, time_delay_voltage, time_ramp, period)
+    I_current = generate_current_ramp(I_min, I_max, time_plateau, t, time_delay_current, time_ramp, period)
+    I_correction = generate_current_ramp(I_min, I_max, time_plateau, t, time_delay_corr, time_ramp, period)
+    
     voltage_magnet, voltage_ds_measured = voltage_magnet_and_voltage_derivative_sensor(I_voltage, L_magnet, R_magnet, kds, gain_ds, offset_ds, dt)
     voltage_corr = voltage_correction(I_voltage, kds, offset_correction, dt)
     
@@ -132,6 +139,8 @@ def simulate(I_min, I_max,  time_offset_current, time_offset_voltages, time_offe
     
     magnet_power_no_comp, magnet_power_comp, magnet_power_corr = power_estimation(voltage_magnet, voltage_ds_measured, voltage_corr, I_measured, I_measured_correction, k_DCCT, attenuation_factor_ISOBLOCK)
 
+    del voltage_magnet, voltage_ds_measured, voltage_corr, I_measured, I_measured_correction
+    
     # Calcolo delle medie delle potenze 
     end_indices = (cycles * period / dt).astype(int)
     
@@ -147,8 +156,6 @@ def statistics_calculation(magnet_power_no_comp_mean, magnet_power_comp_mean, ma
     mean_power_no_comp = np.mean(magnet_power_no_comp_mean, axis=0)
     mean_power_comp = np.mean(magnet_power_comp_mean, axis=0)
     mean_power_corr = np.mean(magnet_power_corr_mean, axis=0)
-    
-    
     
     std_power_no_comp = np.std(magnet_power_no_comp_mean, axis=0)
     std_power_comp = np.std(magnet_power_comp_mean, axis=0)
@@ -185,13 +192,20 @@ def write_results_to_file(file_path, magnet_power_no_comp_mean, magnet_power_com
         file.write(f"Mean power for compensated: {mean_power_comp}\n")
         file.write(f"Std of power for compensated: {std_power_comp}\n")
         
-               
         # Write the final results for non-compensated power
         file.write("\nFinal results for corrected power:\n")
         file.write(f"Mean power for corrected: {mean_power_corr}\n")
         file.write(f"Std of power for corrected: {std_power_corr}\n")
-
-
+    
+def salva_dati_iterazione(nome_file, vettore):
+    # Converte il vettore in tipo float32 per ridurre l'uso della memoria
+    vettore = vettore.astype(np.float32)
+    
+    # Apre il file in modalità 'append' per aggiungere una nuova riga
+    with open(nome_file, 'a') as f:
+        # Scrive il vettore nel file come una nuova riga
+        np.savetxt(f, vettore.reshape(1, -1), delimiter=',', fmt='%.8e')  # Formato scientifico per float32
+        
 ######################
 ### PLOT FUNCTIONS ###
 ######################
