@@ -12,18 +12,18 @@ import os
 def time_delay(time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOCK, time_delay_correction): 
     #time_delay_current = np.random.uniform(low = time_delay_DCCT[0], high = time_delay_DCCT[1]) + np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO, high = time_delay_cRIO+0.01*time_delay_cRIO)
     #DCCT_delay = np.random.uniform(low = time_delay_DCCT[0], high = time_delay_DCCT[1])
-    time_delay_cRIO = np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO, high = time_delay_cRIO+0.01*time_delay_cRIO)
+    #time_delay_cRIO = np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO, high = time_delay_cRIO+0.01*time_delay_cRIO)
     time_delay_current = time_delay_DCCT + time_delay_cRIO
     
     #time_delay_voltage = np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO,  high = time_delay_cRIO+0.01*time_delay_cRIO) + np.random.uniform(low = time_delay_ISOBLOCK[0], high = time_delay_ISOBLOCK[1])
     #ISOBLOCK_delay = np.random.uniform(low = time_delay_ISOBLOCK[0], high = time_delay_ISOBLOCK[1])
     
     time_delay_voltage = time_delay_cRIO + time_delay_ISOBLOCK
+    correction_time_param = np.random.uniform(low = time_delay_correction-0.1*time_delay_correction, high = time_delay_correction+0.1*time_delay_correction)
+    time_delay_corr = time_delay_current + correction_time_param
+    #time_delay_corr = time_delay_current + time_delay_correction
     
-    #time_delay_corr = time_delay_current + np.random.uniform(low = time_delay_correction-0.1*time_delay_correction, high = time_delay_correction+0.1*time_delay_correction)
-    time_delay_corr = time_delay_current + time_delay_correction
-    
-    return time_delay_cRIO, time_delay_current, time_delay_voltage, time_delay_corr
+    return correction_time_param , time_delay_current, time_delay_voltage, time_delay_corr
 
 def sinusoidal_transition(x, x0, x1, y0, y1):
     t = (x - x0) / (x1 - x0)
@@ -144,7 +144,7 @@ def simulate(I_min, I_max,  time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOC
              dt, period, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK, 
              gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution, k_DCCT, gain_error_DCCT, offset_DCCT, cycles):
     
-    time_delay_cRIO, time_delay_current, time_delay_voltage, time_delay_corr = time_delay(time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOCK, time_delay_correction)
+    correction_time_param , time_delay_current, time_delay_voltage, time_delay_corr = time_delay(time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOCK, time_delay_correction)
         
     I_voltage = generate_current_ramp(I_min, I_max, time_plateau, t, time_delay_voltage, time_ramp, period)
     I_current = generate_current_ramp(I_min, I_max, time_plateau, t, time_delay_current, time_ramp, period)
@@ -172,7 +172,7 @@ def simulate(I_min, I_max,  time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOC
     
     del magnet_power_no_comp, magnet_power_comp, magnet_power_corr
     
-    return time_delay_ISOBLOCK, time_delay_DCCT, time_delay_cRIO, time_delay_correction, offset_correction, gain_error_DCCT, offset_DCCT, gain_error_ISOBLOCK, offset_error_ISOBLOCK, gain_error_cRIO, offset_error_cRIO, magnet_power_no_comp_avg, magnet_power_comp_avg, magnet_power_corr_avg
+    return time_delay_ISOBLOCK, time_delay_DCCT, time_delay_cRIO, correction_time_param , offset_correction, gain_error_DCCT, offset_DCCT, gain_error_ISOBLOCK, offset_error_ISOBLOCK, gain_error_cRIO, offset_error_cRIO, magnet_power_no_comp_avg, magnet_power_comp_avg, magnet_power_corr_avg
 
 def statistics_calculation(magnet_power_no_comp_mean, magnet_power_comp_mean, magnet_power_corr_mean):
     mean_power_no_comp = np.mean(magnet_power_no_comp_mean, axis=0)
@@ -255,7 +255,7 @@ def plot_stdv_sensitivity_analysis(cycle_number_array, std_power_corr):
     plt.plot(cycle_number_array, std_power_corr, color='r', label='Std Dev Power losses corrected')
     plt.xlabel('Number of acquisition cycles')
     plt.ylabel('Standard deviation (W)')
-    plt.title('Sensitivity analysis: Time delay cRIO')
+    plt.title('Sensitivity analysis: Time delay correction')
     plt.legend()
     plt.grid(True)
     plt.xticks(cycle_number_array)

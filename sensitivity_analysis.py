@@ -11,16 +11,16 @@ start_time = time.time()
 #############################
 ### SIMULATION PARAMETERS ###
 #############################
-file_name = 'sensitivity_analysis_time_delay_cRIO.txt'  # Output file name
-file_parameters = 'parameters_file_time_delay_cRIO'  # Output file name
+file_name = 'sensitivity_analysis_time_delay_corr.txt'  # Output file name
+file_parameters = 'parameters_file_time_delay_corr'  # Output file name
 N_tot_cycles = 100 # N_values array for different cycles in the simulation
-monte_carlo_iterations = 1000 # Number of Monte Carlo iterations to simulate
+monte_carlo_iterations = 2 # Number of Monte Carlo iterations to simulate
 cycles = np.array([1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100]) # Number of cycles on which calculate statistics
 num_cycles = len(cycles)
 
 ################################
 ### Current cycle parameters ###  
-################################
+################################l
 I_min = 0  # Minimum current in A
 I_max = 3e3  # Maximum current in A
 I_ramp_rate = 2e3  # Ramp rate in A/s
@@ -68,8 +68,8 @@ k_DCCT = 1/750  # DCCT constant
 time_delay_ISOBLOCK =2.85e-6
 #time_delay_DCCT = np.array([1e-6,5e-6]) #DCCT time delay, UNIFORM BUT WITH MEAN DIFFERENT THAN 0 
 time_delay_DCCT = 3e-6
-time_delay_cRIO = 200e-6              # cRIO time delay, UNIFORM, ON INVESTIGATION
-time_delay_corr = 250e-4    *0          # correction time delay, UNIFORM
+time_delay_cRIO = 200e-6    *0         # cRIO time delay, UNIFORM
+time_delay_corr = 250e-4              # correction time delay, UNIFORM, , ON INVESTIGATION
 offset_kds_corr = 0.1*kds   *0          # correction offset, UNIFORM
 gain_error_DCCT = 37/1e6                # DCCT gain error, GAUSSIAN
 offset_DCCT = 70e-6         *0          # Offset DCCT, UNIFORM
