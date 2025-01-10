@@ -3,18 +3,18 @@ import matplotlib.pyplot as plt
 import os
 
 
-### Function needed to create smoother transitions at the beginning and end of ramps in the current cycle
-# WARNING: CURRENTLY NOT USED IN THE "generate_current_ramp" VERSION BELOW
-def sinusoidal_transition(x, x0, x1, y0, y1):
-    t = (x - x0) / (x1 - x0)
-    t = np.clip(t, 0, 1)
-    return y0 + (y1 - y0) * 0.5 * (1 - np.cos(np.pi * t))
+# ### Function needed to create smoother transitions at the beginning and end of ramps in the current cycle
+# # WARNING: CURRENTLY NOT USED IN THE "generate_current_ramp" VERSION BELOW, SURELY TO ADJUST
+# def smooth_transition(x, x0, x1, y0, y1):
+#     t = (x - x0) / (x1 - x0)
+#     t = np.clip(t, 0, 1)
+#     return y0 + (y1 - y0) * 0.5 * (1 - np.cos(np.pi * t))
 
 
 ### Function used to create the current waveform with ramps
-def generate_current_ramp(t, I_min, I_max, time_plateau, time_ramp, time_offset, period, f_samp):
+def generate_current_ramp(t, I_min, I_max, time_ramp, time_plateau, time_offset, period, f_samp):
 
-   # consider the offset by shifting the time scale
+    # consider the offset by shifting the time scale
     t_mod = np.mod(t - time_offset, period)
     
     # initialize current array
@@ -67,7 +67,7 @@ def save_results(file_path, cycles, NO_comp_nor_corr, compensated, corrected):
     with open(file_path, 'w') as file:
         # Save the array of investigated current cycles
         file.write("Investigated current cycles:\n")
-        np.savetxt(file, np.transpose(cycles), delimiter=",")
+        np.savetxt(file, cycles, delimiter=",")
         
         # Save the non-compensated AC losses
         file.write("\nAC losses values (not compensated nor corrected):\n")
@@ -142,7 +142,7 @@ def cust_hist_power(ACloss_dist, cycle_index, filename, save):
     # Custom plot for the AC losses histogram
     
     # Extract the data corresponding to the desired cycles
-    power_values = ACloss_dist[:, cycle_index]
+    power_values = ACloss_dist[cycle_index, :]
     
     # Create the histogram
     plt.figure(figsize=(10, 6))
