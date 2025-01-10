@@ -10,11 +10,20 @@ import os
 ##################################
 
 def time_delay(time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOCK, time_delay_correction): 
-    time_delay_current = np.random.uniform(low = time_delay_DCCT[0], high = time_delay_DCCT[1]) + np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO, high = time_delay_cRIO+0.01*time_delay_cRIO)
-    time_delay_voltage = np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO,  high = time_delay_cRIO+0.01*time_delay_cRIO) + np.random.uniform(low = time_delay_ISOBLOCK[0], high = time_delay_ISOBLOCK[1])
-    time_delay_corr = time_delay_current + np.random.uniform(low = time_delay_correction-0.1*time_delay_correction, high = time_delay_correction+0.1*time_delay_correction)
-
-    return time_delay_current, time_delay_voltage, time_delay_corr
+    #time_delay_current = np.random.uniform(low = time_delay_DCCT[0], high = time_delay_DCCT[1]) + np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO, high = time_delay_cRIO+0.01*time_delay_cRIO)
+    #DCCT_delay = np.random.uniform(low = time_delay_DCCT[0], high = time_delay_DCCT[1])
+    time_delay_cRIO = np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO, high = time_delay_cRIO+0.01*time_delay_cRIO)
+    time_delay_current = time_delay_DCCT + time_delay_cRIO
+    
+    #time_delay_voltage = np.random.uniform(low = time_delay_cRIO-0.01*time_delay_cRIO,  high = time_delay_cRIO+0.01*time_delay_cRIO) + np.random.uniform(low = time_delay_ISOBLOCK[0], high = time_delay_ISOBLOCK[1])
+    #ISOBLOCK_delay = np.random.uniform(low = time_delay_ISOBLOCK[0], high = time_delay_ISOBLOCK[1])
+    
+    time_delay_voltage = time_delay_cRIO + time_delay_ISOBLOCK
+    
+    #time_delay_corr = time_delay_current + np.random.uniform(low = time_delay_correction-0.1*time_delay_correction, high = time_delay_correction+0.1*time_delay_correction)
+    time_delay_corr = time_delay_current + time_delay_correction
+    
+    return time_delay_cRIO, time_delay_current, time_delay_voltage, time_delay_corr
 
 def sinusoidal_transition(x, x0, x1, y0, y1):
     t = (x - x0) / (x1 - x0)
@@ -51,8 +60,12 @@ def generate_current_ramp(I_min, I_max, time_plateau, t, time_offset, time_ramp,
 
 def current_reading(current, k_DCCT, gain_error_DCCT, offset_DCCT, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution): 
     total_samples = len(current)
-    I_measured = ((1+ gain_error_DCCT* np.random.randn(total_samples))*current)* k_DCCT + np.random.uniform(low = -offset_DCCT, high=offset_DCCT, size= total_samples) #Adding the uncertainty of DCCT
-    I_measured = ((1+ gain_error_cRIO* np.random.randn(total_samples))* I_measured) + range_cRIO*np.random.uniform(low=-offset_error_cRIO, high=offset_error_cRIO, size=total_samples)#Adding the uncertainty of cRIO
+    #I_measured = ((1+ gain_error_DCCT* np.random.randn(total_samples))*current)* k_DCCT + np.random.uniform(low = -offset_DCCT, high=offset_DCCT, size= total_samples) #Adding the uncertainty of DCCT
+    #I_measured = ((1+ gain_error_cRIO* np.random.randn(total_samples))* I_measured) + range_cRIO*np.random.uniform(low=-offset_error_cRIO, high=offset_error_cRIO, size=total_samples) #Adding the uncertainty of cRIO
+    
+    I_measured =(1+ gain_error_DCCT)*current* k_DCCT + offset_DCCT
+    I_measured =(1+ gain_error_cRIO)* I_measured + range_cRIO*offset_error_cRIO
+    
     I_measured = np.round(I_measured / ADC_resolution) * ADC_resolution #Adding the quantization error
     
     del current
@@ -76,7 +89,10 @@ def voltage_magnet_and_voltage_derivative_sensor(current, inductance, resistance
 def voltage_correction(current, proportionality_factor, offset_correction, time_interval):
     dI_dt = np.concatenate((np.diff(current), [0])) / time_interval
     
-    k_ds_correction = proportionality_factor + np.random.uniform(low = -offset_correction, high=offset_correction, size= len(current))
+    #k_ds_correction = proportionality_factor + np.random.uniform(low = -offset_correction, high=offset_correction, size= len(current))
+    
+    k_ds_correction = proportionality_factor + offset_correction
+    
     voltage_correction = k_ds_correction* dI_dt
     
     del dI_dt, k_ds_correction
@@ -86,8 +102,11 @@ def voltage_correction(current, proportionality_factor, offset_correction, time_
 def voltages_post_ISOBLOCK(voltage_magnet, voltage_derivative_sensor, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK): 
     total_samples = len(voltage_magnet)
 
-    voltage_magnet_ISO = (((1 + gain_error_ISOBLOCK * np.random.randn(total_samples)) * voltage_magnet) / attenuation_factor_ISOBLOCK) + offset_error_ISOBLOCK * np.random.uniform(low=-1, high=1, size=total_samples)
-    voltage_ds_measured_ISO = (((1 + gain_error_ISOBLOCK * np.random.randn(total_samples)) * voltage_derivative_sensor) / attenuation_factor_ISOBLOCK) + offset_error_ISOBLOCK * np.random.uniform(low=-1, high=1, size=total_samples)
+    #voltage_magnet_ISO = (((1 + gain_error_ISOBLOCK * np.random.randn(total_samples)) * voltage_magnet) / attenuation_factor_ISOBLOCK) + offset_error_ISOBLOCK * np.random.uniform(low=-1, high=1, size=total_samples)
+    #voltage_ds_measured_ISO = (((1 + gain_error_ISOBLOCK * np.random.randn(total_samples)) * voltage_derivative_sensor) / attenuation_factor_ISOBLOCK) + offset_error_ISOBLOCK * np.random.uniform(low=-1, high=1, size=total_samples)
+    
+    voltage_magnet_ISO = (((1 + gain_error_ISOBLOCK) * voltage_magnet)/ attenuation_factor_ISOBLOCK) + offset_error_ISOBLOCK
+    voltage_ds_measured_ISO = (((1 + gain_error_ISOBLOCK) * voltage_derivative_sensor) / attenuation_factor_ISOBLOCK) + offset_error_ISOBLOCK
     
     del voltage_magnet, voltage_derivative_sensor
     
@@ -96,8 +115,11 @@ def voltages_post_ISOBLOCK(voltage_magnet, voltage_derivative_sensor, attenuatio
 def voltages_in_cRIO(voltage_magnet, voltage_derivative_sensor, gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution): 
     total_samples = len(voltage_magnet)
     
-    voltage_magnet_cRIO = ((1 + gain_error_cRIO * np.random.randn(total_samples)) * voltage_magnet) + (offset_error_cRIO * np.random.uniform(low=-1, high=1, size=total_samples) * range_cRIO)
-    voltage_ds_cRIO = ((1 + gain_error_cRIO * np.random.randn(total_samples)) * voltage_derivative_sensor) + (offset_error_cRIO * np.random.uniform(low=-1, high=1, size=total_samples) * range_cRIO)
+    #voltage_magnet_cRIO = ((1 + gain_error_cRIO * np.random.randn(total_samples)) * voltage_magnet) + (offset_error_cRIO * np.random.uniform(low=-1, high=1, size=total_samples) * range_cRIO)
+    #voltage_ds_cRIO = ((1 + gain_error_cRIO * np.random.randn(total_samples)) * voltage_derivative_sensor) + (offset_error_cRIO * np.random.uniform(low=-1, high=1, size=total_samples) * range_cRIO)
+    
+    voltage_magnet_cRIO = (1 + gain_error_cRIO) * voltage_magnet + (offset_error_cRIO * range_cRIO)
+    voltage_ds_cRIO = (1 + gain_error_cRIO) * voltage_derivative_sensor + (offset_error_cRIO * range_cRIO)
     
     del voltage_magnet, voltage_derivative_sensor
         
@@ -122,7 +144,7 @@ def simulate(I_min, I_max,  time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOC
              dt, period, attenuation_factor_ISOBLOCK, gain_error_ISOBLOCK, offset_error_ISOBLOCK, 
              gain_error_cRIO, offset_error_cRIO, range_cRIO, ADC_resolution, k_DCCT, gain_error_DCCT, offset_DCCT, cycles):
     
-    time_delay_current, time_delay_voltage, time_delay_corr = time_delay(time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOCK, time_delay_correction)
+    time_delay_cRIO, time_delay_current, time_delay_voltage, time_delay_corr = time_delay(time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOCK, time_delay_correction)
         
     I_voltage = generate_current_ramp(I_min, I_max, time_plateau, t, time_delay_voltage, time_ramp, period)
     I_current = generate_current_ramp(I_min, I_max, time_plateau, t, time_delay_current, time_ramp, period)
@@ -150,7 +172,7 @@ def simulate(I_min, I_max,  time_delay_DCCT, time_delay_cRIO, time_delay_ISOBLOC
     
     del magnet_power_no_comp, magnet_power_comp, magnet_power_corr
     
-    return magnet_power_no_comp_avg, magnet_power_comp_avg, magnet_power_corr_avg
+    return time_delay_ISOBLOCK, time_delay_DCCT, time_delay_cRIO, time_delay_correction, offset_correction, gain_error_DCCT, offset_DCCT, gain_error_ISOBLOCK, offset_error_ISOBLOCK, gain_error_cRIO, offset_error_cRIO, magnet_power_no_comp_avg, magnet_power_comp_avg, magnet_power_corr_avg
 
 def statistics_calculation(magnet_power_no_comp_mean, magnet_power_comp_mean, magnet_power_corr_mean):
     mean_power_no_comp = np.mean(magnet_power_no_comp_mean, axis=0)
@@ -228,6 +250,16 @@ def plot_power_cycles(cycle_number_array, mean_power_no_comp, mean_power_comp, m
     plt.savefig('power_losses_statistics.svg', format='svg')
     plt.show()
 
+def plot_stdv_sensitivity_analysis(cycle_number_array, std_power_corr):
+    plt.figure(figsize=(12, 6))
+    plt.plot(cycle_number_array, std_power_corr, color='r', label='Std Dev Power losses corrected')
+    plt.xlabel('Number of acquisition cycles')
+    plt.ylabel('Standard deviation (W)')
+    plt.title('Sensitivity analysis: Time delay cRIO')
+    plt.legend()
+    plt.grid(True)
+    plt.xticks(cycle_number_array)
+    
 def plot_current_cycle(I_min, I_max, I_ramp_rate, time_plateau, dt, N_max):
     # Calculate the cycle parameters
     time_transient = (I_max - I_min) / I_ramp_rate
@@ -261,3 +293,11 @@ def plot_power_distribution(magnet_power_mean, column_index, filename):
     plt.savefig(filename, format='svg')
     plt.show()
   
+def write_parameters_file(file_path, parameters_array):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    
+    with open(file_path, 'w') as file:
+        # Write the non-compensated mean power
+        file.write("Parametri:\n")
+        np.savetxt(file, parameters_array, delimiter=",")
