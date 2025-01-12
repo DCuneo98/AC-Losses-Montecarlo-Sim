@@ -2,8 +2,8 @@ import numpy as np
 import time
 import gc
 import os
-from functions import generate_current_ramp, calculate_instant_power, save_results
-from functions import cust_plot_current, cust_plot_power, cust_hist_power
+from functions import generate_current_ramp, calculate_instant_power, save_results, std_sensitivity_analysis, write_sensitivity_analysis_array
+from functions import cust_plot_current, cust_plot_power, cust_hist_power, plot_sensitivity_analysis
 
 
 ## NOTES ON FUTURE ENHANCEMENTS
@@ -24,7 +24,7 @@ from functions import cust_plot_current, cust_plot_power, cust_hist_power
 
 ## Monte Carlo simulation 
 # parameters
-MC_iterations = 10                                                           # number of Monte Carlo iterations
+MC_iterations = 2                                                           # number of Monte Carlo iterations
 cycles = np.array([1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100])     # number of cycles of interest
 
 Nmax_cycles = np.max(cycles)                                                    # N_values array for different cycles in the simulation
@@ -84,13 +84,14 @@ ADC_resolution = 2*range_acq/(np.power(2,n_bit)-1)                              
 
 # there are 11 contributions to investigate, this number is currently hardcoded here
 n_sensitivity = 11
-
+file_name_array = []
 for S in range(n_sensitivity):
     # name of the file with results: it changes for each sensitivity iteration
     file_name = "results_MC" + str(int(MC_iterations/1000)) + "k_cycles" + str(Nmax_cycles) + "__sensitivity_" + str(int(S+1)) + ".txt"
-    
+    file_name_array.append(file_name) 
     ## weights: they decide per each iteration of the sensitivity which uncertainty contribution is present, and it zeroes the others
     W = np.zeros(n_sensitivity)
+    parameters_array = np.zeros((MC_iterations, n_sensitivity))
     W[S] = 1
     
     ### UNCERTAINTY CONTRIBUTIONS AND FURTHER PARAMETERS FROM THE MEASUREMENT CHAIN
@@ -216,6 +217,8 @@ for S in range(n_sensitivity):
         # AClosses_comp[:, i] = np.array([np.mean(inst_pow_comp[:end_idx]) for end_idx in cut_idx])
         AClosses_corr[:, i] = np.array([np.mean(inst_pow_corr[:end_idx]) for end_idx in cut_idx])
         
+        parameters_array[i,:] = np.array([gain_DCCT, offset_DCCT, np.average(delay_DCCT), gain_isolation, offset_isolation, np.average(delay_isolation),
+                                          gain_acq, offset_acq, np.average(delay_acq), offset_corr,np.average(delay_filt)])
         
         ## cleaning and garbage collection
         del inst_pow_corr                                                       # IF YOU WANT TO CHANGE CASE FOR THE SENSITIVITY, EDIT HERE
@@ -238,7 +241,9 @@ for S in range(n_sensitivity):
         file.write("\nAC losses values (corrected):\n")
         np.savetxt(file, AClosses_corr, delimiter=",")                          # IF YOU WANT TO CHANGE CASE FOR THE SENSITIVITY, EDIT HERE
     
-    
+        file.write("\nParameters used:\n")
+        np.savetxt(file, parameters_array, delimiter=",")
+        
     ## final garbage collection and simulation time
     gc.collect()
     print("Simulation completed in {:.1f} seconds.".format(time.time() - start_time))
@@ -247,7 +252,8 @@ for S in range(n_sensitivity):
 
 # #%% POST-PROCESSING
 # # process data just obtained from simulation, or loaded from file!
-
+std_dv_array_from_files = std_sensitivity_analysis(len(cycles), file_name_array)
+write_sensitivity_analysis_array(file_name = "sensitivity_analysis_std_dv_results.txt", std_dvs = std_dv_array_from_files)
 # ## test Gaussian distribution
 # ##### CURRENTLY MISSING                 <<<<
 
@@ -266,3 +272,4 @@ std_corr = np.std(AClosses_corr, axis=1)
 # # cust_hist_power(AClosses_comp, cycle_index=4, filename="distr_comp.svg", save=1)
 # # cust_hist_power(AClosses_corr, cycle_index=4, filename="distr_corr.svg", save=1)
 cust_plot_power(cycles, m_corr, std_corr, m_corr, std_corr, m_corr, std_corr, P_ac, save=0)         ### TEMPORARY!!
+plot_sensitivity_analysis(cycles, std_dv_array_from_files, save_path="Sensitivity Analysis.svg") 
