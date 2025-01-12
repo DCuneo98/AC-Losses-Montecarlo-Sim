@@ -81,7 +81,6 @@ def save_results(file_path, cycles, NO_comp_nor_corr, compensated, corrected):
         file.write("\nAC losses values (corrected):\n")
         np.savetxt(file, corrected, delimiter=",")
 
-
 ### Functions used to save relevant data within single iterations
 ##
 def salva_dati_iterazione(nome_file, vettore):
@@ -93,8 +92,31 @@ def salva_dati_iterazione(nome_file, vettore):
         # Scrive il vettore nel file come una nuova riga
         np.savetxt(f, vettore.reshape(1, -1), delimiter=',', fmt='%.8e')  # Formato scientifico per float32
         
+def std_sensitivity_analysis(cycles, filenames):
+    results = np.zeros((cycles, len(filenames)))  # Per salvare le deviazioni standard per ogni file
+    
+    for i, filename in enumerate(filenames):  # Usa enumerate per ottenere l'indice i
+        # Apre il file e legge tutte le righe
+        with open(filename, "r") as file:
+            lines = file.readlines()
         
+        data_lines = lines[18:34]  
         
+        data = np.genfromtxt(data_lines, delimiter=",")
+        
+        std_deviation = np.std(data, axis=1)
+    
+        results[:, i] = std_deviation
+    
+    return results       
+
+def write_sensitivity_analysis_array(file_name, std_dvs): 
+    if os.path.exists(file_name):
+        os.remove(file_name)
+    with open(file_name, 'w') as file:
+        # Save the array of investigated current cycles
+        file.write("Standard deviations for the evaluated parameters:\n")
+        np.savetxt(file, std_dvs, delimiter=",")   
 ### PLOT FUNCTIONS
 def cust_plot_current(t, I, save):
     # Custom plot for the current cycle
@@ -110,7 +132,6 @@ def cust_plot_current(t, I, save):
         plt.savefig('current_cycle.svg', format='svg')
     
     plt.show()
-
 
 def cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr, ref_Pac, save): 
     # Custom plot for the AC losses as a function of cycles for different conditions
@@ -136,7 +157,6 @@ def cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr
         plt.savefig('power_losses_statistics.svg', format='svg')
         
     plt.show()
-
     
 def cust_hist_power(ACloss_dist, cycle_index, filename, save): 
     # Custom plot for the AC losses histogram
@@ -156,4 +176,64 @@ def cust_hist_power(ACloss_dist, cycle_index, filename, save):
         plt.savefig(filename, format='svg')
         
     plt.show()
-  
+
+def plot_sensitivity_analysis(cycles, standard_deviations, save_path = None):
+    labels = ["Gain_DCCT", "Offset_DCCT", "Delay_DCCT", "Gain_isolation", "Offset_isolation", 
+              "Delay_isolation", "Gain_acquisition", "Offset_acquisition", "Delay_acquisition", 
+              "Offset_correction", "Delay_filt"]
+    
+    plt.figure(figsize=(10, 8))  # Imposta una figura con dimensioni più piccole
+
+    # Primo plot (colonne 1, 2, 3)
+    plt.subplot(2, 2, 1)  # 2 righe, 2 colonne, primo subplot
+    for i in range(3):  # Prima, seconda e terza colonna
+        label = labels[i]
+        plt.plot(cycles, standard_deviations[:, i], label=label)
+    plt.grid(True)
+    plt.xlabel('Number of exploited cycles')
+    plt.ylabel('Std. Dev AC power losses / W')
+    plt.title('Sensitivity: Gain_DCCT, Offset_DCCT, Delay_DCCT')
+    plt.legend()
+    
+    # Secondo plot (colonne 4, 5, 6)
+    plt.subplot(2, 2, 2)  # 2 righe, 2 colonne, secondo subplot
+    for i in range(3, 6):  # Quarta, quinta e sesta colonna
+        label = labels[i]
+        plt.plot(cycles, standard_deviations[:, i], label=label)
+    plt.grid(True)
+    plt.xlabel('Number of exploited cycles')
+    plt.ylabel('Std. Dev AC power losses / W')
+    plt.title('Sensitivity: Gain_isolation, Offset_isolation, Delay_isolation')
+    plt.legend()
+    
+    # Terzo plot (colonne 7, 8, 9)
+    plt.subplot(2, 2, 3)  # 2 righe, 2 colonne, terzo subplot
+    for i in range(6, 9):  # Settima, ottava e nona colonna
+        label = labels[i]
+        plt.plot(cycles, standard_deviations[:, i], label=label)
+    plt.grid(True)
+    plt.xlabel('Number of exploited cycles')
+    plt.ylabel('Std. Dev AC power losses / W')
+    plt.title('Sensitivity: Gain_acquisition, Offset_acquisition, Delay_acquisition')
+    plt.legend()
+    
+    # Quarto plot (colonne 10, 11)
+    plt.subplot(2, 2, 4)  # 2 righe, 2 colonne, quarto subplot
+    for i in range(9, 11):  # Decima e undicesima colonna
+        label = labels[i]
+        plt.plot(cycles, standard_deviations[:, i], label=label)
+    plt.grid(True)
+    plt.xlabel('Number of exploited cycles')
+    plt.ylabel('Std. Dev AC power losses / W')
+    plt.title('Sensitivity: Offset_correction, Delay_filt')
+    plt.legend()
+    
+    # Ridurre lo spazio tra i subplots
+    plt.subplots_adjust(hspace=0.3, wspace=0.3)  # Regola gli spazi tra righe (hspace) e colonne (wspace)
+    
+    plt.tight_layout()  # Ottimizza la disposizione
+    if save_path:
+        plt.savefig(save_path, format='svg')
+        print(f"Figure saved as {save_path}")
+    
+    plt.show()
