@@ -100,32 +100,32 @@ for S in range(n_sensitivity):
     
     gain_DCCT = 37e-6                                                               # gaussiana
     # relative uncertainty
-    offset_DCCT = 70e-6*W[1]                                                        # absolute tolerance in V, uniforme
-    delay_DCCT = np.array([1e-6, 5e-6])                                             # range of time delays in s, uniforme valore medio non nullo
+    offset_DCCT = 70e-6*W[1]                                                        # absolute tolerance in V, uniform
+    delay_DCCT = np.array([1e-6, 5e-6])                                             # range of time delays in s, uniform with mean different than 0
     delay_DCCT_ave = np.average(delay_DCCT)
     
     ## isolation module ISOBLOCKv4
-    gain_isolation = 2e-3                                                           # relative uncertainty, gaussiana
-    offset_isolation = 500e-6*W[4]                                               # absolute tolerance in V, uniforme
-    delay_isolation = np.array([0.0e-6, 5.7e-6])                              # range of time delays in s, uniforme a valore medio non nullo
+    gain_isolation = 2e-3                                                           # relative uncertainty, gaussian
+    offset_isolation = 500e-6*W[4]                                                  # absolute tolerance in V, uniforme
+    delay_isolation = np.array([0.0e-6, 5.7e-6])                                    # range of time delays in s, uniform with mean different than 0
     delay_isolation_ave  = np.average(delay_isolation)
     
     ## acquisition module NI9239 in compactRIO 9049
-    gain_acq = 3e-4                                                                # relative uncertainty, gaussiana
-    offset_acq = 8e-5*W[7]                                                          # relative tolerance, uniforme
-    delay_acq = np.array([199e-6, 201e-6])                                     # range of time delays in s, uniforme a valore medio non nullo
+    gain_acq = 3e-4                                                                 # relative uncertainty, gaussian
+    offset_acq = 8e-5*W[7]                                                          # relative tolerance, uniform
+    delay_acq = np.array([199e-6, 201e-6])                                          # range of time delays in s, uniform with mean different than 0
     delay_acq_ave = np.average(delay_acq) 
     
     ## Compensation and correction part 
     # # sensor case
-    # gain_comp = 63e-4                                                               # relative uncertainty on kds (obtained with a further MC simulation)
-    # offset_comp = 19e-4                                                             # tolerance on kds (obtained with a further MC simulation)
-    # delay_sens = np.array([0e-6, 6e-6])                                             # time shift due to sensor (hypothesis: small as the isolation module one)
+    # gain_comp = 63e-4                                                             # relative uncertainty on kds (obtained with a further MC simulation)
+    # offset_comp = 19e-4                                                           # tolerance on kds (obtained with a further MC simulation)
+    # delay_sens = np.array([0e-6, 6e-6])                                           # time shift due to sensor (hypothesis: small as the isolation module one)
     
     # derivative case
-    gain_corr = 0e-4                                                                # relative uncertainty on kds in correction (hypothesis: ALREADY NULL), gaussiana
-    offset_corr = 0.1*kds*W[9]                                                     # tolerance on kds (reasonably 10 %, as for the compensation), uniforme
-    delay_filt = np.array([0e-4, 2e-4])                                       # time shift due to filter (hypothesis: order 25 +/- 1 % @ 10 kSa/s, then deterministic effect corrected!!!), uniforme valore medio non nullo
+    gain_corr = 0e-4                                                                # relative uncertainty on kds in correction (hypothesis: ALREADY NULL), gaussian
+    offset_corr = 0.1*kds*W[9]                                                      # tolerance on kds (reasonably 10 %, as for the compensation), uniform
+    delay_filt = np.array([0e-4, 2e-4])                                             # time shift due to filter (hypothesis: order 25 +/- 1 % @ 10 kSa/s, then deterministic effect corrected!!!), uniform with mean different than 0
     delay_filt_ave = np.average(delay_filt)
     
     
@@ -148,9 +148,10 @@ for S in range(n_sensitivity):
         
         ## path of magnet current: DCCT + acquisition module
         # add all the time delays here
-        #delay_current = np.random.uniform(low=delay_DCCT[0], high=delay_DCCT[1]) + np.random.uniform(low=delay_acq[0], high=delay_acq[1])
-        delay_DCCT_sa = (1-W[2])*delay_DCCT_ave + W[2]*np.random.uniform(low=delay_DCCT[0], high=delay_DCCT[1])
-        delay_acq_sa = ((1-W[8])*delay_acq_ave) + (W[8]*np.random.uniform(low=delay_acq[0], high=delay_acq[1]))
+        # the "sa" suffix stands for "sensitivity analysis"
+        
+        delay_DCCT_sa = (1-W[2])*delay_DCCT_ave + W[2]*np.random.uniform(low=delay_DCCT[0], high=delay_DCCT[1]) #when the weight is 1 it returns the average of the parameter value otherwise it returns 0
+        delay_acq_sa = (1-W[8])*delay_acq_ave + W[8]*np.random.uniform(low=delay_acq[0], high=delay_acq[1])     #when the weight is 1 it returns the average of the parameter value otherwise it returns 0
         
         delay_current = delay_DCCT_sa +  delay_acq_sa
         
@@ -159,19 +160,20 @@ for S in range(n_sensitivity):
         isamp = len(current)
         
         # apply the uncertainty of DCCT
-        #vDCCT = ((1+gain_DCCT*np.random.randn(isamp))*k_DCCT)*current + np.random.uniform(low=-offset_DCCT, high=+offset_DCCT, size=isamp)
         gain_DCCT_sa = gain_DCCT*((1-W[0])+W[0]*np.random.randn(isamp))
+        
         vDCCT = ((1+gain_DCCT_sa)*k_DCCT)*current + np.random.uniform(low=-offset_DCCT, high=+offset_DCCT, size=isamp)
         
         # apply the uncertainty of the acquisition module (it will be on CH3)
         gain_acq_sa = gain_acq*((1-W[6])+W[6]*np.random.randn(isamp))
+        
         CH3 = (1+gain_acq_sa)*vDCCT + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=isamp)
         
         
         ## path of magnet voltage: isolation module + acquisition module
         # add the time delays of the voltage on the current entering the model
-        #delay_voltage = np.random.uniform(low=delay_isolation[0], high=delay_isolation[1]) + np.random.uniform(low=delay_acq[0], high=delay_acq[1])
-        delay_isolation_sa = (1-W[5])*delay_isolation_ave + W[5]*np.random.uniform(low=delay_isolation[0], high=delay_isolation[1])                                                                        
+        delay_isolation_sa = (1-W[5])*delay_isolation_ave + W[5]*np.random.uniform(low=delay_isolation[0], high=delay_isolation[1])               
+                                                                 
         delay_voltage = delay_isolation_sa + delay_acq_sa
         
         I = generate_current_ramp(t, I_min, I_max, time_ramp, time_plateau, delay_voltage, period, f_samp)
@@ -184,14 +186,14 @@ for S in range(n_sensitivity):
         vsamp = len(voltage)
         
         # apply the uncertainty of the isolation module
-        #vISOL = ((1+gain_isolation*np.random.randn(vsamp)))/att_isolation)*voltage + np.random.uniform(low=-offset_isolation, high=+offset_isolation, size=vsamp)
         gain_isolation_sa = gain_isolation*((1-W[3])+W[3]*np.random.randn(vsamp))
+        
         vISOL = ((1+gain_isolation_sa)/att_isolation)*voltage + np.random.uniform(low=-offset_isolation, high=+offset_isolation, size=vsamp)
         
         # apply the uncertainty of the acquisition module (it will be on CH1)
         CH1 = (1+gain_acq_sa)*vISOL + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=vsamp)
         
-        
+
         # ## path of compensation voltage: derivative sensor + isolation module (for attenuation) + acquisition module
         # # add the time delays of the current in a different way for the derivative sensor
         # delay_sensor = np.random.uniform(low=delay_sens[0], high=delay_sens[1]) + np.random.uniform(low=delay_isolation[0], high=delay_isolation[1]) + np.random.uniform(low=delay_acq[0], high=delay_acq[1])
@@ -214,6 +216,7 @@ for S in range(n_sensitivity):
         
         #delay_corr = np.random.uniform(low=delay_filt[0], high=delay_filt[1]) + delay_current
         delay_filt_sa = (1-W[10])*delay_filt_ave + W[10] *np.random.uniform(low=delay_filt[0], high=delay_filt[1])
+        
         delay_corr = delay_filt_sa +delay_current
         Icorr = generate_current_ramp(t, I_min, I_max, time_ramp, time_plateau, delay_corr, period, f_samp)
         dIcorr_dt = np.concatenate(([0], np.diff(Icorr)))/dt
