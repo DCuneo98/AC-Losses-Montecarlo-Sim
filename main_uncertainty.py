@@ -1,7 +1,9 @@
 import numpy as np
 import time
 import gc
-from functions import generate_current_ramp, calculate_instant_power, save_results
+import os
+from scipy.stats import norm, chi2
+from functions import generate_current_ramp, calculate_instant_power, save_results, data_from_file_chi_squared_test, chi_squared_normality_test
 from functions import cust_plot_current, cust_plot_power, cust_hist_power
 
 
@@ -23,7 +25,7 @@ from functions import cust_plot_current, cust_plot_power, cust_hist_power
 
 ## Monte Carlo simulation 
 # parameters
-MC_iterations = 100                                                           # number of Monte Carlo iterations
+MC_iterations = 10000                                                           # number of Monte Carlo iterations
 cycles = np.array([1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100])     # number of cycles of interest
 
 Nmax_cycles = np.max(cycles)                                                    # N_values array for different cycles in the simulation
@@ -225,7 +227,30 @@ print("Simulation completed in {:.1f} seconds.".format(time.time() - start_time)
 # process data just obtained from simulation, or loaded from file!
 
 ## test Gaussian distribution
-##### CURRENTLY MISSING                 <<<<
+file_path = "results_MC10k_cycles100.txt"
+additional_keywords = ['(not compensated nor corrected):\n', '(compensated):\n', '(corrected):\n']
+index = int(input("Insert an index: \n 0: Not compensated power losses\n 1: Compensated power losses\n 2: Corrected power losses\n"))
+data_row_index = int(input(
+    "Prompt the index of the distribution to plot inserting a number from 1 to 15:\n"
+    "1: 1 cycle\n"
+    "2: 2 cycles\n"
+    "3: 3 cycles\n"
+    "4: 4 cycles\n"
+    "5: 5 cycles\n"
+    "6: 10 cycles\n"
+    "7: 15 cycles\n"
+    "8: 20 cycles\n"
+    "9: 25 cycles\n"
+    "10: 30 cycles\n"
+    "11: 40 cycles\n"
+    "12: 50 cycles\n"
+    "13: 60 cycles\n"
+    "14: 80 cycles\n"
+    "15: 100 cycles\n"
+))
+
+data = data_from_file_chi_squared_test(file_path,additional_keywords, index, data_row_index)
+chi_squared_normality_test(data)
 
 ## calculation of mean and standard deviation
 m_NOco = np.mean(AClosses_NOco, axis=1)
