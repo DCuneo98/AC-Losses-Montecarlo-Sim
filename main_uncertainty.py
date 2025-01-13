@@ -3,6 +3,7 @@ import time
 import gc
 from functions import generate_current_ramp, calculate_instant_power, save_results
 from functions import cust_plot_current, cust_plot_power, cust_hist_power
+from functions import chi_squared_normality_test
 
 
 ## NOTES ON FUTURE ENHANCEMENTS
@@ -12,6 +13,7 @@ from functions import cust_plot_current, cust_plot_power, cust_hist_power
 # 4) make the "custom plot functions" less hardcoded... 
 # 5) implement the "del" inside the iteration loop?
 # 6) save data inside the iteration loop for deeper analysis (and also sensitivity)
+# 7) IMPROVE CURRENT DATA SAVING
 
 
 ## WARNINGS
@@ -23,7 +25,7 @@ from functions import cust_plot_current, cust_plot_power, cust_hist_power
 
 ## Monte Carlo simulation 
 # parameters
-MC_iterations = 100                                                           # number of Monte Carlo iterations
+MC_iterations = 10                                                           # number of Monte Carlo iterations
 cycles = np.array([1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100])     # number of cycles of interest
 
 Nmax_cycles = np.max(cycles)                                                    # N_values array for different cycles in the simulation
@@ -76,30 +78,30 @@ kds = mu0 * mu_r  * Ac * n2 / (lc + 2 * mu_r * la)                              
 k_DCCT = 1/750                                                                  # conversion factor in V/A
 gain_DCCT = 37e-6                                                               # relative uncertainty
 offset_DCCT = 70e-6                                                             # absolute tolerance in V
-delay_DCCT = np.array([1e-6, 5e-6])                                             # range of time delays in s
+delay_DCCT = 3e-6 + np.array([-2e-6, +2e-6])                                    # range of time delays in s
 
 ## isolation module ISOBLOCKv4
 att_isolation = 10                                                              # attenuation factor of the isolation module in V/V
 gain_isolation = 2e-3                                                           # relative uncertainty
 offset_isolation = 500e-6                                                       # absolute tolerance in V
-delay_isolation = np.array([0.0e-6, 5.7e-6])                                    # range of time delays in s
+delay_isolation = 2.9 + np.array([-2.9e-6, +2.9e-6])                            # range of time delays in s
 
 ## acquisition module NI9239 in compactRIO 9049
 range_acq = 10.52                                                               # acquisition module range in V
 gain_acq = 3e-4                                                                 # relative uncertainty
 offset_acq = 8e-5                                                               # relative tolerance
-delay_acq = np.array([199e-6, 201e-6])                                          # range of time delays in s
+delay_acq = 200e-6 + np.array([-1e-6, +1e-6])                                   # range of time delays in s
 
 ## Compensation and correction part 
 # sensor case
 gain_comp = 63e-4                                                               # relative uncertainty on kds (obtained with a further MC simulation)
 offset_comp = 19e-4                                                             # tolerance on kds (obtained with a further MC simulation)
-delay_sens = np.array([0e-6, 6e-6])                                             # time shift due to sensor (hypothesis: small as the isolation module one)
+delay_sens = 3e-6 + np.array([-3e-6, +3e-6])                                    # time shift due to sensor (hypothesis: small as the isolation module one)
 
 # derivative case
 gain_corr = 0e-4                                                                # relative uncertainty on kds in correction (hypothesis: null)
 offset_corr = 0.1*kds                                                           # tolerance on kds (reasonably 10 %, as for the compensation)
-delay_filt = np.array([0e-4, 2e-4])                                             # time shift due to filter (hypothesis: order 25 +/- 1 % @ 10 kSa/s, then deterministic effect corrected!!!)
+delay_filt = 1e-4 + np.array([-1e-4, +1e-4])                                    # time shift due to filter (hypothesis: order 25 +/- 1 % @ 10 kSa/s, then deterministic effect corrected!!!)
 
 ## A/D conversion in NI9239: sampling and quantization
 f_samp = 1e3                                                                    # sample frequency in Sa/s
@@ -137,7 +139,7 @@ for i in range(MC_iterations):
     vDCCT = ((1+gain_DCCT*np.random.randn(isamp))*k_DCCT)*current + np.random.uniform(low=-offset_DCCT, high=+offset_DCCT, size=isamp)
     
     # apply the uncertainty of the acquisition module (it will be on CH3)
-    CH3 = (1+gain_acq*np.random.randn(isamp))*vDCCT + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=isamp)
+    CH3 = (1+gain_acq*np.random.uniform(low=-1, high=+1, size=isamp))*vDCCT + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=isamp)
     
     
     ## path of magnet voltage: isolation module + acquisition module
@@ -156,7 +158,7 @@ for i in range(MC_iterations):
     vISOL = ((1+gain_isolation*np.random.randn(vsamp))/att_isolation)*voltage + np.random.uniform(low=-offset_isolation, high=+offset_isolation, size=vsamp)
     
     # apply the uncertainty of the acquisition module (it will be on CH1)
-    CH1 = (1+gain_acq*np.random.randn(vsamp))*vISOL + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=vsamp)
+    CH1 = (1+gain_acq*np.random.uniform(low=-1, high=+1, size=vsamp))*vISOL + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=vsamp)
     
     
     ## path of compensation voltage: derivative sensor + isolation module (for attenuation) + acquisition module
@@ -170,10 +172,10 @@ for i in range(MC_iterations):
     vCOMP = ((1+gain_comp*np.random.randn(isens))*kds + np.random.uniform(low =-offset_comp, high=+offset_comp, size=isens))*dIsens_dt
     
     # apply the uncertainty of the isolation module used for attenuation
-    vCOMP_ISOL = ((1+gain_isolation*np.random.randn(isens))/att_isolation)*vCOMP + np.random.uniform(low=-offset_isolation, high=+offset_isolation, size=isens)
+    vCOMP_ISOL = ((1+gain_isolation*np.random.uniform(low=-1, high=+1, size=isens))/att_isolation)*vCOMP + np.random.uniform(low=-offset_isolation, high=+offset_isolation, size=isens)
     
     # apply contributions of the acquisition module (it will be on CH2)
-    CH2 = (1+gain_acq*np.random.randn(isens))*vCOMP_ISOL + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=isens)
+    CH2 = (1+gain_acq*np.random.uniform(low=-1, high=+1, size=isens))*vCOMP_ISOL + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=isens)
     
     
     ## path of correction voltage: using the measured current with delay of the filter
@@ -188,7 +190,7 @@ for i in range(MC_iterations):
     vCORR = ((1+gain_corr*np.random.randn(icorr))*kds + np.random.uniform(low =-offset_corr, high=+offset_corr, size=icorr))*dIcorr_dt
     
     # apply contributions of the acquisition module (it will be on CH3x, it should be actually the same contributions of CH3, but this is a worse case)
-    CH3x = (1+gain_acq*np.random.randn(icorr))*vCORR + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=icorr)
+    CH3x = (1+gain_acq*np.random.uniform(low=-1, high=+1, size=icorr))*vCORR + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=icorr)
     
         
     ## CALCULATION of instantaneous powers in different conditions (including quantization)
@@ -225,7 +227,7 @@ print("Simulation completed in {:.1f} seconds.".format(time.time() - start_time)
 # process data just obtained from simulation, or loaded from file!
 
 ## test Gaussian distribution
-##### CURRENTLY MISSING                 <<<<
+chi_squared_normality_test(AClosses_corr, num_bins=15)
 
 ## calculation of mean and standard deviation
 m_NOco = np.mean(AClosses_NOco, axis=1)

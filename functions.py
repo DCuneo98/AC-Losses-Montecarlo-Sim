@@ -126,9 +126,9 @@ def chi_squared_normality_test(data, num_bins=15):
 
     # Interpretation
     if p_value < 0.05:
-        print("Cannot reject the hypothesis that the data do NOT follow a normal distribution (p < 0.05).\n")
+        print("The null hypothesis was rejected, the distribution is NORMAL with probability of false negative < 5 %.\n")
     else:
-        print("There are no evidences to trust the null hypotesis (p >= 0.05).\n")
+        print("There is no evidence to reject the null hypotesis (p >= 0.05).\n")
     
     print("##################################################################################################")
 
