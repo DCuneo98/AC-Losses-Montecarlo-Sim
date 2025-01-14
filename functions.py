@@ -145,7 +145,6 @@ def cust_plot_current(t, I, save):
     plt.plot(t, I, label='ramped current waveform')
     plt.xlabel('time / s')
     plt.ylabel('current / A')
-    plt.title('current cycles')                                     # TEMPORARY, MUST BE REMOVED FROM FINAL VERSION FOR PAPER
     plt.grid(True)
     
     if (save == 1):
@@ -169,7 +168,6 @@ def cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr
     
     plt.xlabel('number of exploited cycles')
     plt.ylabel('AC power losses / W')
-    plt.title('power losses as a number of acquisition cycles')     # TEMPORARY, MUST BE REMOVED FROM FINAL VERSION FOR PAPER
     plt.legend()
     plt.grid(True)
     plt.xticks(cycles) 
@@ -191,7 +189,6 @@ def cust_hist_power(ACloss_dist, cycle_index, filename, save):
     plt.hist(power_values, edgecolor='black')
     plt.xlabel('AC losses values / W')
     plt.ylabel('statistical frequency')
-    plt.title('histogram for a specific number of cycles')          # TEMPORARY, MUST BE REMOVED FROM FINAL VERSION FOR PAPER
     plt.grid(True) 
     
     if (save == 1):  
@@ -200,6 +197,7 @@ def cust_hist_power(ACloss_dist, cycle_index, filename, save):
     plt.show()
   
 
+########################################################
 #### SOME FUNCTIONS THAT NEED TO BE ADJUSTED  
 def std_sensitivity_analysis(cycles, filenames):
     results = np.zeros((cycles, len(filenames)))  # Per salvare le deviazioni standard per ogni file

@@ -25,7 +25,7 @@ from functions import chi_squared_normality_test
 
 ## Monte Carlo simulation 
 # parameters
-MC_iterations = 100                                                          # number of Monte Carlo iterations
+MC_iterations = 10000                                                           # number of Monte Carlo iterations
 cycles = np.array([1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100])     # number of cycles of interest
 
 Nmax_cycles = np.max(cycles)                                                    # N_values array for different cycles in the simulation
@@ -89,13 +89,13 @@ delay_isolation = 2.9e-6 + np.array([-2.9e-6, +2.9e-6])                         
 ## acquisition module NI9239 in compactRIO 9049
 range_acq = 10.52                                                               # acquisition module range in V
 gain_acq = 3e-4                                                                 # relative uncertainty
-offset_acq = 8e-5                                                               # relative tolerance
-delay_acq = 200e-6 + np.array([-1e-6, +1e-6])                                   # range of time delays in s
+offset_acq = 842e-6                                                             # relative tolerance
+delay_acq = 200e-6 + np.array([-2e-6, +2e-6])                                   # range of time delays in s
 
 ## Compensation and correction part 
 # sensor case
 gain_comp = 63e-4                                                               # relative uncertainty on kds (obtained with a further MC simulation)
-offset_comp = 19e-4                                                             # tolerance on kds (obtained with a further MC simulation)
+offset_comp = 0.1*kds                                                           # tolerance on kds (obtained with a further MC simulation)
 delay_sens = 3e-6 + np.array([-3e-6, +3e-6])                                    # time shift due to sensor (hypothesis: small as the isolation module one)
 
 # derivative case
@@ -148,7 +148,7 @@ for i in range(MC_iterations):
     I = generate_current_ramp(t, I_min, I_max, time_ramp, time_plateau, delay_voltage, period, f_samp)
     
     # derivative of current
-    dI_dt = np.concatenate(([0], np.diff(I)))/dt
+    dI_dt = np.gradient(I,dt) #np.concatenate(([0], np.diff(I)))/dt
     
     # magnet voltage in the time domain
     voltage = (R_magnet * I + L_magnet * dI_dt)
@@ -165,7 +165,7 @@ for i in range(MC_iterations):
     # add the time delays of the current in a different way for the derivative sensor
     delay_sensor = np.random.uniform(low=delay_sens[0], high=delay_sens[1]) + np.random.uniform(low=delay_isolation[0], high=delay_isolation[1]) + np.random.uniform(low=delay_acq[0], high=delay_acq[1])
     Isens = generate_current_ramp(t, I_min, I_max, time_ramp, time_plateau, delay_sensor, period, f_samp)
-    dIsens_dt = np.concatenate(([0], np.diff(Isens)))/dt
+    dIsens_dt = np.gradient(Isens,dt) # np.concatenate(([0], np.diff(Isens)))/dt
     isens = len(dIsens_dt)
     
     # apply the contribution of the derivative sensor
@@ -182,7 +182,7 @@ for i in range(MC_iterations):
     # add the time delays of the current in a different way for the derivative sensor
     delay_corr = np.random.uniform(low=delay_filt[0], high=delay_filt[1]) + delay_current
     Icorr = generate_current_ramp(t, I_min, I_max, time_ramp, time_plateau, delay_corr, period, f_samp)
-    dIcorr_dt = np.concatenate(([0], np.diff(Icorr)))/dt
+    dIcorr_dt = np.gradient(Icorr,dt) #np.concatenate(([0], np.diff(Icorr)))/dt
     icorr = len(dIcorr_dt)
     
     # compute the correction voltage by also considering uncertainties in the scaling factor
@@ -226,6 +226,9 @@ print("Simulation completed in {:.1f} seconds.".format(time.time() - start_time)
 #%% POST-PROCESSING
 # process data just obtained from simulation, or loaded from file!
 # LOAD DATA HERE IF NOT JUST OBTAINED FROM SIMULATION
+
+## plot the power supply current
+cust_plot_current(t[:int(np.round(2*period*f_samp))], I[:int(np.round(2*period*f_samp))], 1)
 
 ## consider the following number of cycles
 cycle_index=(np.where(cycles == 100)[0]).item()

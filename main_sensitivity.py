@@ -111,17 +111,17 @@ for S in range(n_sensitivity):
     ## isolation module ISOBLOCKv4
     gain_isolation = 2e-3*W[3]                                                      # relative uncertainty
     offset_isolation = 500e-6*W[4]                                                  # absolute tolerance on 10 V range in V
-    delay_isolation = 2.9e-6 + np.array([-2.9e-6, +2.9e-6])*W[5]                       # range of time delays in s
+    delay_isolation = 2.9e-6 + np.array([-2.9e-6, +2.9e-6])*W[5]                    # range of time delays in s
     
     ## acquisition module NI9239 in compactRIO 9049
     gain_acq = 3e-4*W[6]                                                            # relative uncertainty
-    offset_acq = 8e-5*W[7]                                                          # relative tolerance
-    delay_acq = 200e-6 + np.array([-1e-6, +1e-6])*W[8]                              # range of time delays in s
+    offset_acq = 842e-6*W[7]                                                        # relative tolerance
+    delay_acq = 200e-6 + np.array([-2e-6, +2e-6])*W[8]                              # range of time delays in s
     
     ## Compensation and correction part 
     # # sensor case
     # gain_comp = 63e-4                                                               # relative uncertainty on kds (obtained with a further MC simulation)
-    # offset_comp = 19e-4                                                             # tolerance on kds (obtained with a further MC simulation)
+    # offset_comp = 0.1*kds                                                           # tolerance on kds (obtained with a further MC simulation)
     # delay_sens = 3e-6 + np.array([-3e-6, +3e-6])                                    # time shift due to sensor (hypothesis: small as the isolation module one)
     
     # derivative case
@@ -136,10 +136,8 @@ for S in range(n_sensitivity):
     # start monitoring the simulation time
     start_time = time.time()
     
-    # AC losses per each iteration and each number of cycles in the conditions of interest
-    # AClosses_NOco = np.zeros((num_cycles, MC_iterations))                           # no compensation nor correction
-    # AClosses_comp = np.zeros((num_cycles, MC_iterations))                           # compensation case
-    AClosses_corr = np.zeros((num_cycles, MC_iterations))                           # correction case
+    # AC losses per each iteration and each number of cycles in one condition of interest
+    AClosses = np.zeros((num_cycles, MC_iterations))                            # case of interest: correction case
     
     # time samples of interest (max number of cycles case)
     t = np.arange(0, Nmax_cycles * period, dt)
@@ -212,17 +210,14 @@ for S in range(n_sensitivity):
         CH3x = (1+gain_acq*np.random.uniform(low=-1, high=+1, size=icorr))*vCORR + range_acq*np.random.uniform(low=-offset_acq, high=+offset_acq, size=icorr)
         
             
-        ## CALCULATION of instantaneous powers in different conditions (including quantization)
-        # inst_pow_NOco = calculate_instant_power(CH1*att_isolation,   0,                 CH3/k_DCCT, ADC_resolution)
-        # inst_pow_comp = calculate_instant_power(CH1*att_isolation,   CH2*att_isolation, CH3/k_DCCT, ADC_resolution)
-        inst_pow_corr = calculate_instant_power(CH1*att_isolation,   CH3x,              CH3/k_DCCT, ADC_resolution)
+        ## CALCULATION of instantaneous powers in a specific condition (including quantization)
+        # IF YOU WANT TO CHANGE CASE FOR THE SENSITIVITY, EDIT HERE (and eventually uncomment a code piece before)
+        inst_pow = calculate_instant_power(CH1*att_isolation, CH3x, CH3/k_DCCT, ADC_resolution)
         
         # cut at different number of cycles and retrieve the AC losses from instantaneous powers
         cut_idx = (cycles * period * f_samp).astype(int)
         
-        # AClosses_NOco[:, i] = np.array([np.mean(inst_pow_NOco[:end_idx]) for end_idx in cut_idx])
-        # AClosses_comp[:, i] = np.array([np.mean(inst_pow_comp[:end_idx]) for end_idx in cut_idx])
-        AClosses_corr[:, i] = np.array([np.mean(inst_pow_corr[:end_idx]) for end_idx in cut_idx])
+        AClosses[:, i] = np.array([np.mean(inst_pow[:end_idx]) for end_idx in cut_idx])
             
         
         ## save parameters                                                      (WHY?)
@@ -231,7 +226,7 @@ for S in range(n_sensitivity):
         
         
         ## cleaning and garbage collection
-        del inst_pow_corr                                                       # IF YOU WANT TO CHANGE CASE FOR THE SENSITIVITY, EDIT HERE
+        del inst_pow
         gc.collect()
         
         print("Monte Carlo iteration n. ", i+1)
@@ -249,7 +244,7 @@ for S in range(n_sensitivity):
         
         # Save the corrected AC losses
         file.write("\nAC losses values (corrected):\n")
-        np.savetxt(file, AClosses_corr, delimiter=",")                          # IF YOU WANT TO CHANGE CASE FOR THE SENSITIVITY, EDIT HERE
+        np.savetxt(file, AClosses, delimiter=",")                         
     
         # Save the used parameters
         file.write("\nParameters used:\n")
@@ -268,20 +263,9 @@ for S in range(n_sensitivity):
 std_dv_array_from_files = std_sensitivity_analysis(len(cycles), file_name_array)
 write_sensitivity_analysis_array(file_name = "sensitivity_analysis_std_dv_results.txt", std_dvs = std_dv_array_from_files)
 
+# calculation of mean and standard deviation
+m =  np.mean(AClosses, axis=1)
+std = np.std(AClosses, axis=1)
 
-# ## calculation of mean and standard deviation
-# m_NOco = np.mean(AClosses_NOco, axis=1)
-# m_comp = np.mean(AClosses_comp, axis=1)
-m_corr = np.mean(AClosses_corr, axis=1)
-
-# std_NOco = np.std(AClosses_NOco, axis=1)
-# std_comp = np.std(AClosses_comp, axis=1)
-std_corr = np.std(AClosses_corr, axis=1)
-
-
-# ## plots
-# cust_hist_power(AClosses_NOco, cycle_index=4, filename="distr_NOco.svg", save=1)
-# # cust_hist_power(AClosses_comp, cycle_index=4, filename="distr_comp.svg", save=1)
-# # cust_hist_power(AClosses_corr, cycle_index=4, filename="distr_corr.svg", save=1)
-cust_plot_power(cycles, m_corr, std_corr, m_corr, std_corr, m_corr, std_corr, P_ac, save=0)         ### TEMPORARY!!
+# plots
 plot_sensitivity_analysis(cycles, std_dv_array_from_files, save_path="Sensitivity Analysis.svg") 
