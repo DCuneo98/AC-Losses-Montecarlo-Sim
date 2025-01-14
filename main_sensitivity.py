@@ -111,7 +111,7 @@ for S in range(n_sensitivity):
     ## isolation module ISOBLOCKv4
     gain_isolation = 2e-3*W[3]                                                      # relative uncertainty
     offset_isolation = 500e-6*W[4]                                                  # absolute tolerance on 10 V range in V
-    delay_isolation = 2.9 + np.array([-2.9e-6, +2.9e-6])*W[5]                       # range of time delays in s
+    delay_isolation = 2.9e-6 + np.array([-2.9e-6, +2.9e-6])*W[5]                       # range of time delays in s
     
     ## acquisition module NI9239 in compactRIO 9049
     gain_acq = 3e-4*W[6]                                                            # relative uncertainty

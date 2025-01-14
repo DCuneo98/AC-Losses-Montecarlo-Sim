@@ -84,7 +84,7 @@ delay_DCCT = 3e-6 + np.array([-2e-6, +2e-6])                                    
 att_isolation = 10                                                              # attenuation factor of the isolation module in V/V
 gain_isolation = 2e-3                                                           # relative uncertainty
 offset_isolation = 500e-6                                                       # absolute tolerance in V
-delay_isolation = 2.9 + np.array([-2.9e-6, +2.9e-6])                            # range of time delays in s
+delay_isolation = 2.9e-6 + np.array([-2.9e-6, +2.9e-6])                            # range of time delays in s
 
 ## acquisition module NI9239 in compactRIO 9049
 range_acq = 10.52                                                               # acquisition module range in V
