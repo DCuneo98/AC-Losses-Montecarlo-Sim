@@ -25,7 +25,7 @@ from functions import chi_squared_normality_test
 
 ## Monte Carlo simulation 
 # parameters
-MC_iterations = 10                                                           # number of Monte Carlo iterations
+MC_iterations = 100                                                          # number of Monte Carlo iterations
 cycles = np.array([1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100])     # number of cycles of interest
 
 Nmax_cycles = np.max(cycles)                                                    # N_values array for different cycles in the simulation
@@ -84,7 +84,7 @@ delay_DCCT = 3e-6 + np.array([-2e-6, +2e-6])                                    
 att_isolation = 10                                                              # attenuation factor of the isolation module in V/V
 gain_isolation = 2e-3                                                           # relative uncertainty
 offset_isolation = 500e-6                                                       # absolute tolerance in V
-delay_isolation = 2.9e-6 + np.array([-2.9e-6, +2.9e-6])                            # range of time delays in s
+delay_isolation = 2.9e-6 + np.array([-2.9e-6, +2.9e-6])                         # range of time delays in s
 
 ## acquisition module NI9239 in compactRIO 9049
 range_acq = 10.52                                                               # acquisition module range in V
@@ -225,9 +225,21 @@ print("Simulation completed in {:.1f} seconds.".format(time.time() - start_time)
 
 #%% POST-PROCESSING
 # process data just obtained from simulation, or loaded from file!
+# LOAD DATA HERE IF NOT JUST OBTAINED FROM SIMULATION
+
+## consider the following number of cycles
+cycle_index=(np.where(cycles == 100)[0]).item()
 
 ## test Gaussian distribution
-chi_squared_normality_test(AClosses_corr, num_bins=15)
+print("\nTest normality for 'no correction/compensation case'")
+chi_squared_normality_test(AClosses_NOco[cycle_index,:])
+
+print("\nTest normality for 'compensation case'")
+chi_squared_normality_test(AClosses_comp[cycle_index,:])
+
+print("\nTest normality for 'correction case'")
+chi_squared_normality_test(AClosses_corr[cycle_index,:])
+
 
 ## calculation of mean and standard deviation
 m_NOco = np.mean(AClosses_NOco, axis=1)
@@ -240,7 +252,7 @@ std_corr = np.std(AClosses_corr, axis=1)
 
 
 ## plots
-cust_hist_power(AClosses_NOco, cycle_index=4, filename="distr_NOco.svg", save=1)
-# cust_hist_power(AClosses_comp, cycle_index=4, filename="distr_comp.svg", save=1)
-# cust_hist_power(AClosses_corr, cycle_index=4, filename="distr_corr.svg", save=1)
-cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr, P_ac, save=0)
+cust_hist_power(AClosses_NOco, cycle_index, filename="distr_NOco.svg", save=1)
+cust_hist_power(AClosses_comp, cycle_index, filename="distr_comp.svg", save=1)
+cust_hist_power(AClosses_corr, cycle_index, filename="distr_corr.svg", save=1)
+cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr, P_ac, save=1)

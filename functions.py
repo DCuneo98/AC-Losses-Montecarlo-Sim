@@ -95,18 +95,22 @@ def save_results(file_path, cycles, NO_comp_nor_corr, compensated, corrected):
         
 
 ### Function for a custom normality test
-def chi_squared_normality_test(data, num_bins=15):
+def chi_squared_normality_test(data):
+    
+    # Calculate the number of bins with Sturges rule
+    num_bins = 1 + int(np.round(np.log2(len(data))))
+
+    # Calculate observed frequencies
+    counts, edges = np.histogram(data, bins=num_bins)
+    
     # Calculate the mean and standard deviation of the data
     mu = np.mean(data)
     sigma = np.std(data)
 
-    # Calculate observed frequencies
-    counts, edges = np.histogram(data, bins=num_bins)
-
     # Calculate theoretical frequencies
-    bin_centers = edges[:-1] + np.diff(edges) / 2  # Compute bin centers
-    theoretical_probs = norm.pdf(bin_centers, mu, sigma) * np.diff(edges)  # Theoretical probabilities
-    theoretical_freqs = theoretical_probs * len(data)  # Theoretical frequencies
+    bin_centers = edges[:-1] + np.diff(edges) / 2                               # Compute bin centers
+    theoretical_probs = norm.pdf(bin_centers, mu, sigma) * np.diff(edges)       # Theoretical probabilities
+    theoretical_freqs = theoretical_probs * len(data)                           # Theoretical frequencies
 
     # Calculate the chi-squared statistic
     chi_squared = np.sum((counts - theoretical_freqs) ** 2 / theoretical_freqs)
@@ -118,8 +122,8 @@ def chi_squared_normality_test(data, num_bins=15):
     p_value = 1 - chi2.cdf(chi_squared, dof)
 
     # Output the results
-    print("##################################################################################################\n")
-    print(f"H0: the data DO NOT follow a normal distribution\n")
+    print("#################################################################\n")
+    print("H0: the data DO NOT follow a normal distribution\n")
     print(f"Chi-squared statistic: {chi_squared:.2f}")
     print(f"Degrees of freedom: {dof}")
     print(f"p-value: {p_value:.3f}")
@@ -130,7 +134,7 @@ def chi_squared_normality_test(data, num_bins=15):
     else:
         print("There is no evidence to reject the null hypotesis (p >= 0.05).\n")
     
-    print("##################################################################################################")
+    print("#################################################################")
 
         
 ### PLOT FUNCTIONS
