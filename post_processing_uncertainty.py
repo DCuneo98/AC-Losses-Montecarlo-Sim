@@ -2,10 +2,10 @@
 ## UNCERTAINTY ANALYSIS CASE FIRST
 import numpy as np
 import matplotlib.pyplot as plt
-from functions import cust_plot_power
+from functions import cust_plot_power, chi_squared_normality_test
 
 ## File with data to load
-file_name = 'results_MC0k_cycles100.txt'
+file_name = 'results_MC10k_cycles100.txt'
 
 ## Load cycles info
 cycles = []
@@ -84,7 +84,22 @@ with open(file_name) as infile:
 AClosses_corr = np.array([list(map(float, row.split(','))) for row in AClosses_corr_temp])
 
 
-# plot (to ADJUST)
+### NORMALITY TEST
+# consider the following number of cycles
+cycle_index=(np.where(cycles == 100)[0]).item()
+
+## test Gaussian distribution
+print("\nTest normality for 'no correction/compensation case'")
+chi_squared_normality_test(AClosses_NOco[cycle_index,:])
+
+print("\nTest normality for 'compensation case'")
+chi_squared_normality_test(AClosses_comp[cycle_index,:])
+
+print("\nTest normality for 'correction case'")
+chi_squared_normality_test(AClosses_corr[cycle_index,:])
+
+
+### PLOTS (to ADJUST)
 m_NOco = np.mean(AClosses_NOco, axis=1)
 std_NOco = np.std(AClosses_NOco, axis=1)
 

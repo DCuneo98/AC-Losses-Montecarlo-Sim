@@ -20,14 +20,19 @@ def std_sensitivity_analysis(cycles, filenames):
     return results     
 
 def plot_sensitivity_analysis(cycles, standard_deviations, save_path = None):
-    labels = ["Gain DCCT", "Offset DCCT", "Delay DCCT", "Gain isolation", "Offset isolation", 
-              "Delay isolation", "Gain acquisition", "Offset acquisition", "Delay acquisition", 
-              "Offset correction", "Delay filt"]
+    labels = ["gain DCCT", "offset DCCT", "delay DCCT", "gain isolation", "offset isolation", 
+              "delay isolation", "gain acquisition", "offset acquisition", "delay acquisition", 
+              "offset correction", "delay correction"]
     
     plt.figure(figsize=(10, 8))  # Imposta una figura con dimensioni più piccole
     #colors = ['b', 'g', 'r']
-    colors = plt.cm.tab10.colors
+    colors = plt.cm.Dark2.colors
     markers = ['o', '^', 's']
+    common_xlabel = 'number of exploited cycles'
+    common_ylabel = 'standard deviation of losses / W'
+    common_lim = (1e-6, 1e+2)
+    
+    
     # Primo plot (colonne 1, 2, 3)
     plt.subplot(2, 2, 1)  # 2 righe, 2 colonne, primo subplot
     for i in range(3):  # Prima, seconda e terza colonna
@@ -35,9 +40,10 @@ def plot_sensitivity_analysis(cycles, standard_deviations, save_path = None):
         plt.plot(cycles, standard_deviations[:, i], label=label, color=colors[i], marker=markers[i], markersize=5)
         plt.yscale('log')
     plt.grid(True)
-    plt.xlabel('Number of exploited cycles')
-    plt.ylabel('Std. Dev AC power losses / W')
-    plt.title('Sensitivity analysis: Gain DCCT, Offset DCCT, Delay DCCT')
+    plt.xlabel(common_xlabel)
+    plt.ylabel(common_ylabel)
+    plt.ylim(common_lim)
+    #plt.title('Sensitivity analysis: Gain DCCT, Offset DCCT, Delay DCCT')
     plt.legend()
     
     # Secondo plot (colonne 4, 5, 6)
@@ -47,9 +53,10 @@ def plot_sensitivity_analysis(cycles, standard_deviations, save_path = None):
         plt.plot(cycles, standard_deviations[:, i], label=label, color=colors[i-3], marker=markers[i-3], markersize=5)
         plt.yscale('log')
     plt.grid(True)
-    plt.xlabel('Number of exploited cycles')
-    plt.ylabel('Std. Dev AC power losses / W')
-    plt.title('Sensitivity analysis: Gain isolation, Offset isolation, Delay isolation')
+    plt.xlabel(common_xlabel)
+    plt.ylabel(common_ylabel)
+    plt.ylim(common_lim)
+    #plt.title('Sensitivity analysis: Gain isolation, Offset isolation, Delay isolation')
     plt.legend()
     
     # Terzo plot (colonne 7, 8, 9)
@@ -59,21 +66,23 @@ def plot_sensitivity_analysis(cycles, standard_deviations, save_path = None):
         plt.plot(cycles, standard_deviations[:, i], label=label, color=colors[i-6], marker=markers[i-6], markersize=5)
         plt.yscale('log')
     plt.grid(True)
-    plt.xlabel('Number of exploited cycles')
-    plt.ylabel('Std. Dev AC power losses / W')
-    plt.title('Sensitivity analysis: Gain acquisition, Offset acquisition, Delay acquisition')
+    plt.xlabel(common_xlabel)
+    plt.ylabel(common_ylabel)
+    plt.ylim(common_lim)
+    #plt.title('Sensitivity analysis: Gain acquisition, Offset acquisition, Delay acquisition')
     plt.legend()
     
     # Quarto plot (colonne 10, 11)
     plt.subplot(2, 2, 4)  # 2 righe, 2 colonne, quarto subplot
     for i in range(9, 11):  # Decima e undicesima colonna
         label = labels[i]
-        plt.plot(cycles, standard_deviations[:, i], label=label, color=colors[i-9], marker=markers[i-9], markersize=5)
+        plt.plot(cycles, standard_deviations[:, i], label=label, color=colors[i-8], marker=markers[i-8], markersize=5)
         plt.yscale('log')
     plt.grid(True)
-    plt.xlabel('Number of exploited cycles')
-    plt.ylabel('Std. Dev AC power losses / W')
-    plt.title('Sensitivity analysis: Offset correction, Delay filt')
+    plt.xlabel(common_xlabel)
+    plt.ylabel(common_ylabel)
+    plt.ylim(common_lim)
+    #plt.title('Sensitivity analysis: Offset correction, Delay filt')
     plt.legend()
     
     # Ridurre lo spazio tra i subplots
