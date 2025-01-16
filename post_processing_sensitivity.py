@@ -105,4 +105,4 @@ for S in range (n_sensitivity):
     file_name_array.append(file_name)
     
 std_dv_array_from_files = std_sensitivity_analysis(len(cycles), file_name_array)
-plot_sensitivity_analysis(cycles, std_dv_array_from_files, save_path="Sensitivity Analysis.svg") 
+plot_sensitivity_analysis(cycles, std_dv_array_from_files, save_path="power_losses_sensitivity.svg") 
