@@ -98,10 +98,16 @@ def save_results(file_path, cycles, NO_comp_nor_corr, compensated, corrected):
 def chi_squared_normality_test(data):
     
     # Calculate the number of bins with Sturges rule
-    num_bins = 1 + int(np.round(np.log2(len(data))))
+    # num_bins = 1 + int(np.ceil(np.log2(len(data))))
+    
+    # Calculate the number of bins with square-root choice
+    # num_bins = int(np.ceil(np.sqrt(len(data))))
+    
+    # Calculate the number of bins with Rice choice
+    num_bins = int(2*np.ceil(len(data)**(1./3)))
 
     # Calculate observed frequencies
-    counts, edges = np.histogram(data, bins=num_bins)
+    counts, edges = np.histogram(data, bins=num_bins, density=True)
     
     # Calculate the mean and standard deviation of the data
     mu = np.mean(data)
@@ -141,7 +147,7 @@ def chi_squared_normality_test(data):
 def cust_plot_current(t, I, save):
     # Custom plot for the current cycle
     
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(12, 6))
     plt.plot(t, I, label='ramped current waveform')
     plt.xlabel('time / s')
     plt.ylabel('current / A')
@@ -156,7 +162,7 @@ def cust_plot_current(t, I, save):
 def cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr, ref_Pac, save): 
     # Custom plot for the AC losses as a function of cycles for different conditions
 
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(5, 5))
     
     # plot the reference AC losses value
     plt.axhline(y=ref_Pac, xmin=0, xmax=1, linestyle='dashed', color='k', label='AC power losses')
@@ -170,10 +176,11 @@ def cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr
     plt.ylabel('AC power losses / W')
     plt.legend()
     plt.grid(True)
-    plt.xticks(cycles) 
+    #5plt.xticks(cycles) 
+    plt.ylim(30, 50)
     
     if (save == 1):
-        plt.savefig('power_losses_statistics.svg', format='svg')
+        plt.savefig('power_losses_statistics_post2.svg', format='svg')
         
     plt.show()
 
@@ -184,11 +191,20 @@ def cust_hist_power(ACloss_dist, cycle_index, filename, save):
     # Extract the data corresponding to the desired cycles
     power_values = ACloss_dist[cycle_index, :]
     
+    # Calculate the number of bins with Sturges rule
+    #num_bins = 1 + int(np.ceil(np.log2(len(power_values))))
+    
+    # Calculate the number of bins with square-root choice
+    # num_bins = int(np.ceil(np.sqrt(len(power_values))))
+    
+    # Calculate the number of bins with Rice choice
+    num_bins = int(2*np.ceil(len(power_values)**(1./3)))
+    
     # Create the histogram
     plt.figure(figsize=(10, 6))
-    plt.hist(power_values, edgecolor='black')
+    plt.hist(power_values, bins = num_bins, edgecolor='black', density=True)
     plt.xlabel('AC losses values / W')
-    plt.ylabel('statistical frequency')
+    plt.ylabel('relative statistical frequency')
     plt.grid(True) 
     
     if (save == 1):  

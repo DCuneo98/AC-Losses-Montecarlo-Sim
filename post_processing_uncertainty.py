@@ -2,7 +2,7 @@
 ## UNCERTAINTY ANALYSIS CASE FIRST
 import numpy as np
 import matplotlib.pyplot as plt
-from functions import cust_plot_power, chi_squared_normality_test
+from functions import cust_plot_power, chi_squared_normality_test, cust_hist_power
 
 ## File with data to load
 file_name = 'results_MC10k_cycles100.txt'
@@ -109,4 +109,6 @@ std_comp = np.std(AClosses_comp, axis=1)
 m_corr = np.mean(AClosses_corr, axis=1)
 std_corr = np.std(AClosses_corr, axis=1)
 
-cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr, 37.6, 0)
+cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr, 37.6, 1)
+
+cust_hist_power(AClosses_comp, cycle_index, filename="distr_comp.svg", save=1)
