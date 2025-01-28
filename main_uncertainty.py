@@ -10,7 +10,7 @@ from functions import chi_squared_normality_test
 # 1) in composing the time delays, I'm not sure we have to take different ones on different streams if it is the same contribution, hence the currently implemented one is a worst case scenario
 # 2) we could define a variable with the inverse of the current k_DCCT, this would reduce the number of division, but it is kept as it is for compatibility with previous versions of the code
 # 3) the names "gain_*" and "offset_*" could be changed into "u_*" and "D_*" respectively (just to shorten variable names)
-# 4) make the "custom plot functions" less hardcoded... 
+# 4) make the "custom plot functions"   less hardcoded... 
 # 5) implement the "del" inside the iteration loop?
 # 6) save data inside the iteration loop for deeper analysis (and also sensitivity)
 # 7) IMPROVE CURRENT DATA SAVING
@@ -25,7 +25,7 @@ from functions import chi_squared_normality_test
 
 ## Monte Carlo simulation 
 # parameters
-MC_iterations = 10000                                                           # number of Monte Carlo iterations
+MC_iterations = 1000                                                           # number of Monte Carlo iterations
 cycles = np.array([1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100])     # number of cycles of interest
 
 Nmax_cycles = np.max(cycles)                                                    # N_values array for different cycles in the simulation
@@ -101,7 +101,7 @@ delay_sens = 3e-6 + np.array([-3e-6, +3e-6])                                    
 # derivative case
 gain_corr = 0e-4                                                                # relative uncertainty on kds in correction (hypothesis: null)
 offset_corr = 0.1*kds                                                           # tolerance on kds (reasonably 10 %, as for the compensation)
-delay_filt = 1e-4 + np.array([-1e-4, +1e-4])                                    # time shift due to filter (hypothesis: order 25 +/- 1 % @ 10 kSa/s, then deterministic effect corrected!!!)
+delay_filt = 1e-4 + np.array([-1e-4 , +1e-4])                                   # time shift due to filter (hypothesis: order 25 +/- 1 % @ 10 kSa/s, then deterministic effect corrected!!!)
 
 ## A/D conversion in NI9239: sampling and quantization
 f_samp = 1e3                                                                    # sample frequency in Sa/s

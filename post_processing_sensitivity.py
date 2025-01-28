@@ -28,7 +28,7 @@ def plot_sensitivity_analysis(cycles, standard_deviations, save_path = None):
     #colors = ['b', 'g', 'r']
     colors = plt.cm.Dark2.colors
     markers = ['o', '^', 's']
-    common_xlabel = 'number of exploited cycles'
+    common_xlabel = 'number of cycles'
     common_ylabel = 'standard deviation of losses / W'
     common_lim = (1e-6, 1e+2)
     

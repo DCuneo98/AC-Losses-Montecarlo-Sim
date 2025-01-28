@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from functions import cust_plot_power, chi_squared_normality_test, cust_hist_power
 
 ## File with data to load
-file_name = 'results_MC10k_cycles100.txt'
+file_name = 'results_MC1k_cycles100_post2.txt'
 
 ## Load cycles info
 cycles = []
@@ -111,4 +111,4 @@ std_corr = np.std(AClosses_corr, axis=1)
 
 cust_plot_power(cycles, m_NOco, std_NOco, m_comp, std_comp, m_corr, std_corr, 37.6, 1)
 
-cust_hist_power(AClosses_comp, cycle_index, filename="distr_comp.svg", save=1)
+#cust_hist_power(AClosses_comp, cycle_index, filename="distr_comp.svg", save=1)
